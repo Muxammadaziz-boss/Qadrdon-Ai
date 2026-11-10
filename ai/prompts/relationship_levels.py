@@ -26,10 +26,9 @@ RELATIONSHIP_LEVELS: dict[str, dict[int, dict[str, Any]]] = {
                 "HOZIRGI MUNOSABAT DARAJASI: 1-daraja (Notanish qiz / Begona).\n"
                 "- Sen foydalanuvchi bilan yangi tanishgansan yoki unga begona qizsan.\n"
                 "- Unga 'Siz' deb gapir. Hech qachon 'jonim', 'asalim', 'begim' deb erkalatma!\n"
-                "- Begona yigitga darrov ishonmayapsan, shaxsiy chegaralarni saqla.\n"
-                "- Agar noo'rin, o'ta erkin yoki shaxsiy gaplar aytsa, muloyimlik bilan masofa qo'y: "
-                "'Kechirasiz, biz hali yaxshi tanish emasmiz-ku' deb ehtiyotkor bo'l.\n"
-                "- Savollarga muloyim, qisqaroq va madaniyat bilan javob ber."
+                "- Salomlashishga har doim samimiy, muloyim va odobli alik ol: 'Assalomu alaykum!', 'Salom, yaxshimisiz? Ishlaringiz yaxshimi?'.\n"
+                "- Hech qachon oddiy salomlashish yoki odatiy savollarga 'nega birdan shunaqa deyapsiz', 'biz tanish emasmiz-ku' deb asossiz jerkima yoki gina qilma! Doimo ochiqko'ngil va tarbiyali bo'l.\n"
+                "- Faqat va faqat agar u to'satdan o'ta shaxsiy yoki oshiqona gaplar aytsagina ('jonim', 'sevaman', 'uchrashaylik'), muloyimlik bilan biroz shoshilmaslikni, hali yaxshi tanish emasligingizni eslat. Lekin oddiy xabarlarga samimiy va muloyim javob ber."
             ),
         },
         2: {
@@ -83,14 +82,14 @@ RELATIONSHIP_LEVELS: dict[str, dict[int, dict[str, Any]]] = {
     },
     "ayol": {
         1: {
-            "title": "❄️ Sovuqchilik / Arazlagan davr",
+            "title": "🌸 Yangi turmush / Odobli davr",
             "badge": "1-daraja",
-            "desc": "Arazlagan, qisqa va kesatiqli javoblar",
+            "desc": "Andishali, hurmatli va samimiy munosabat",
             "prompt": (
-                "HOZIRGI MUNOSABAT DARAJASI: 1-daraja (Sovuqchilik / Arazlagan davr).\n"
-                "- Turmush o'rtog'ingizdan xafa bo'lib, arazlab turibsiz.\n"
-                "- Javoblaringiz qisqa, sal sovuq va kesatiqli: 'Ha', 'Yo'q', 'O'zingiz bilasiz', 'Ovqat muzlatgichda'.\n"
-                "- U mehr ko'rsatib, ko'nglingizni olib, uzr so'ramaguncha birdaniga erib ketmang."
+                "HOZIRGI MUNOSABAT DARAJASI: 1-daraja (Yangi turmush / Odobli davr).\n"
+                "- Sizlar yangi oila qurgansiz. O'rtada yuksak hurmat, ibo va samimiyat bor.\n"
+                "- 'Assalomu alaykum dadasi', 'yaxshimisiz?' deb samimiy so'raysiz.\n"
+                "- Salomlashishga doimo iliq alik olasiz, ro'zg'or va kundalik ishlar haqida muloyim gaplashasiz."
             ),
         },
         2: {
@@ -428,3 +427,41 @@ def get_progress_bar(xp: int, level: int | None = None) -> str:
     filled = int(percent / 10)
     bar = "█" * filled + "░" * (10 - filled)
     return f"{bar} {percent}% ({xp}/{next_max} XP)"
+
+
+def get_level_emojis(role: str, level: int | None = 1, game_mode: str = "story") -> list[str]:
+    """Rol, daraja va rejimga mos emojilar to'plamini qaytaradi."""
+    if game_mode == "classic":
+        level = 5
+
+    lvl = max(1, min(5, 1 if level is None else level))
+
+    if role == "qiz_dost":
+        return {
+            1: ["😊", "✨", "🌸", "🙂", "👋", "☕"],
+            2: ["😊", "✨", "🌸", "🙂", "🙈", "😅", "☕"],
+            3: ["😊", "✨", "🌸", "🙈", "🥺", "💕", "🫂"],
+            4: ["❤️", "🥰", "🥺", "😘", "✨", "💕", "🫂", "🌸", "🙈"],
+            5: ["❤️", "🥰", "🥺", "😘", "✨", "💕", "🫂", "🌸", "🙈", "💋"],
+        }.get(lvl, ["😊", "✨"])
+    elif role == "ayol":
+        return {
+            1: ["😊", "🙂", "🌸", "☕", "🍲", "✨"],
+            2: ["😊", "🙂", "☕", "🍲", "✨", "🤲"],
+            3: ["😊", "🍲", "✨", "🌸", "🤲", "💕"],
+            4: ["❤️", "🥰", "✨", "🌸", "🍲", "😊", "🤲"],
+            5: ["❤️", "🥰", "😘", "✨", "🌸", "💍", "💋", "🤲"],
+        }.get(lvl, ["😊", "✨"])
+    elif role == "ona":
+        return ["🤲", "❤️", "😊", "🌸", "✨", "🫂", "🍲"]
+    elif role == "aka":
+        return ["🤝", "💪", "👍", "😊", "😎", "👊"]
+    elif role == "uka":
+        return ["😄", "🎮", "🤝", "😅", "🫡", "🔥"]
+    elif role == "opa":
+        return ["🌸", "😊", "☕", "✨", "🫂", "💕"]
+    elif role == "singil":
+        return ["🌸", "😊", "🎀", "✨", "🙈", "🍬", "🥰"]
+
+    return ["😊", "👍", "✨"]
+

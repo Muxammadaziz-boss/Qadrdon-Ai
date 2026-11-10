@@ -19,7 +19,13 @@ def get_full_system_prompt(
 ) -> str:
     """Rol moduli va qo'shimcha parametrlardan to'liq prompt yaratadi."""
     role_module = ROLES.get(role, ROLES["aka"])
-    role_template = getattr(role_module, "ROLE_PROMPT", "")
+
+    # Rejim va darajaga mos role template tanlash
+    if game_mode == "story" and relationship_level < 4 and hasattr(role_module, "ROLE_PROMPT_STORY"):
+        role_template = role_module.ROLE_PROMPT_STORY
+    else:
+        role_template = getattr(role_module, "ROLE_PROMPT", "")
+
     formatted_role_prompt = role_template.format(ai_name=ai_name)
 
     level_addon = get_role_level_prompt(role, relationship_level, game_mode)
@@ -38,7 +44,12 @@ def get_full_system_prompt(
                 f"- O'ziga xos iboralari: {', '.join(char_model.get('slangs', []))}\n"
             )
 
-    full_role_prompt = f"{formatted_role_prompt}\n{level_addon}\n{char_addon}"
+    full_role_prompt = (
+        f"{formatted_role_prompt}\n"
+        f"⚠️ MUHIM: Munosabat darajasi talablariga qat'iy rioya qil!\n"
+        f"{level_addon}\n"
+        f"{char_addon}"
+    )
 
     return build_system_prompt(
         role=role,
@@ -53,4 +64,3 @@ def get_full_system_prompt(
 
 # Alias for backward compatibility
 build_personality_prompt = get_full_system_prompt
-

@@ -6,6 +6,7 @@ Barcha humanizer modullarini birlashtirib insondek jonli matn tayyorlaydi.
 from ai.humanizer.emoji_inserter import insert_emojis
 from ai.humanizer.slang_mixer import mix_slang
 from ai.humanizer.typo_maker import add_typos
+from ai.prompts.relationship_levels import get_level_emojis
 from ai.prompts.roles import ROLES
 
 
@@ -15,8 +16,11 @@ def humanize(text: str, ai_profile) -> tuple[str, str | None]:
     Returns:
         (humanized_text, correction_text_or_none)
     """
-    role_module = ROLES.get(getattr(ai_profile, "role", "aka"), ROLES["aka"])
-    role_emojis = getattr(role_module, "EMOJI_SET", ["😊", "👍"])
+    role = getattr(ai_profile, "role", "aka")
+    level = getattr(ai_profile, "relationship_level", 1) or 1
+    game_mode = getattr(ai_profile, "game_mode", "story") or "story"
+
+    role_emojis = get_level_emojis(role=role, level=level, game_mode=game_mode)
 
     # 1. Slang qo'llash
     if getattr(ai_profile, "use_slang", True):
