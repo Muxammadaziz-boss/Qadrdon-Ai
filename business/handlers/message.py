@@ -504,12 +504,13 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
 
     if user_asked_photo:
         try:
-            category = get_photo_category(user_text)
+            role = getattr(ai_profile, "role", "qiz_dost")
+            category = get_photo_category(user_text, role=role)
             photo_src = await get_or_download_photo(category)
             photo_caption = get_photo_caption(
                 category=category,
                 level=getattr(ai_profile, "relationship_level", 1),
-                role=getattr(ai_profile, "role", "qiz_dost"),
+                role=role,
                 game_mode=getattr(ai_profile, "game_mode", "story"),
             )
             if photo_src.startswith("http"):

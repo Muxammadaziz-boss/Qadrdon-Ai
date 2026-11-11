@@ -3,6 +3,7 @@
 import pytest
 from ai.characters.photo_manager import (
     is_photo_requested,
+    is_selfie_requested,
     get_photo_category,
     get_photo_caption,
     ATMOSPHERE_GALLERY,
@@ -14,8 +15,19 @@ def test_is_photo_requested():
     assert is_photo_requested("rasm tashla") is True
     assert is_photo_requested("qayerdasan?") is True
     assert is_photo_requested("nima qilyapsan, foto bormi") is True
+    assert is_photo_requested("o'z suratingni yubor iltimos") is True
     assert is_photo_requested("salom yaxshimisiz") is False
     assert is_photo_requested("bugun havo qanday?") is False
+
+
+def test_is_selfie_requested():
+    """O'z suratini so'rash so'rovlarini aniqlaydi."""
+    assert is_selfie_requested("o'z suratingni yubor iltimos") is True
+    assert is_selfie_requested("o'zingni rasmingni tashla") is True
+    assert is_selfie_requested("yuzingni ko'ray") is True
+    assert is_selfie_requested("selfi bormi") is True
+    assert is_selfie_requested("qayerdasan") is False
+    assert is_selfie_requested("kofe ichyapman") is False
 
 
 def test_get_photo_category():
@@ -25,6 +37,13 @@ def test_get_photo_category():
     assert get_photo_category("kitob o'qiyapman") == "study"
     assert get_photo_category("kechki shahar") == "evening"
     assert get_photo_category("uyda choy ichib") == "tea_home"
+
+    # Aynan o'z surati so'ralganda (ayol va erkak rollari)
+    cat_female = get_photo_category("o'z suratingni yubor iltimos", role="qiz_dost")
+    assert cat_female in ["selfie_female_1", "selfie_female_2"]
+
+    cat_male = get_photo_category("o'z suratingni yubor iltimos", role="aka")
+    assert cat_male in ["selfie_male_1", "selfie_male_2"]
 
 
 def test_get_photo_caption():

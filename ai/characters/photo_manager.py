@@ -1,12 +1,11 @@
 """Qadirdon AI — Personaj Rasmlari va Muhit Fotolari (Photo Manager).
 
-Foydalanuvchi rasm so'raganda yoki kvestlarda real hayotiy atmosfera
-suratlarini jo'natish moduli.
+Foydalanuvchi o'z surati (selfi) yoki atrof-muhit rasmlarini so'raganda
+mos fotosuratlarni yuborish moduli.
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import random
 from typing import Any
@@ -17,11 +16,60 @@ from loguru import logger
 ASSETS_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "photos" / "atmosphere"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Atmosfera toifalari va ularga mos yuqori sifatli rasmlar
-ATMOSPHERE_GALLERY: dict[str, dict[str, Any]] = {
+FEMALE_ROLES = {"qiz_dost", "ayol", "ona", "opa", "singil"}
+MALE_ROLES = {"aka", "uka"}
+
+PHOTO_GALLERY: dict[str, dict[str, Any]] = {
+    # ── Shaxsiy selfilar (Ayollar / Qizlar) ───────────────────────────────
+    "selfie_female_1": {
+        "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80",
+        "keywords": ["selfi", "selfie", "o'z surating", "o'z rasming", "yuzingni"],
+        "captions": {
+            1: "O'zimni rasmga olishga sal tortinaman 🙈 Lekin sizga mana bitta rasmim, qalay? 😊",
+            2: "Bugun tushgan rasmim bor edi, sizga ilindim 🙈 Yoqdimi?",
+            3: "Hozirgina siz uchun tushdim 🌸 Qarang, kayfiyatim ajoyib!",
+            4: "Faqat sizga yuboryapman sevgilim... 🙈 Hozir yonimda bo'lganingizda edi 🥰",
+            5: "Jonim, sog'ingan bo'lsangiz mana sizga yangi rasmim... O'zim ham sizni juda sog'indim 💕",
+        },
+    },
+    "selfie_female_2": {
+        "url": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80",
+        "keywords": ["selfi", "selfie", "o'z surating", "o'z rasming", "yuzingni"],
+        "captions": {
+            1: "O'zimni rasmga olishga sal tortinaman 🙈 Lekin sizga mana bitta rasmim, qalay? 😊",
+            2: "Bugun tushgan rasmim bor edi, sizga ilindim 🙈 Yoqdimi?",
+            3: "Hozirgina siz uchun tushdim 🌸 Qarang, kayfiyatim ajoyib!",
+            4: "Faqat sizga yuboryapman sevgilim... 🙈 Hozir yonimda bo'lganingizda edi 🥰",
+            5: "Jonim, sog'ingan bo'lsangiz mana sizga yangi rasmim... O'zim ham sizni juda sog'indim 💕",
+        },
+    },
+    # ── Shaxsiy selfilar (Erkaklar / Yigitlar) ─────────────────────────────
+    "selfie_male_1": {
+        "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80",
+        "keywords": ["selfi", "selfie", "o'z surating", "o'z rasming"],
+        "captions": {
+            1: "Salom, mana yaqinda tushgan rasmim 🤝",
+            2: "Mana yangi rasmim, qalay chiqqan? 👍",
+            3: "Hozir tushgan rasmim, do'stim 💪",
+            4: "Senga atab bitta rasm do'stim, kayfiyatlar a'lo! 🔥",
+            5: "Mana qadrdonim, har doim aloqadaman 👊",
+        },
+    },
+    "selfie_male_2": {
+        "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80",
+        "keywords": ["selfi", "selfie", "o'z surating", "o'z rasming"],
+        "captions": {
+            1: "Salom, mana yaqinda tushgan rasmim 🤝",
+            2: "Mana yangi rasmim, qalay chiqqan? 👍",
+            3: "Hozir tushgan rasmim, do'stim 💪",
+            4: "Senga atab bitta rasm do'stim, kayfiyatlar a'lo! 🔥",
+            5: "Mana qadrdonim, har doim aloqadaman 👊",
+        },
+    },
+    # ── Atmosfera va mashg'ulotlar ───────────────────────────────────────
     "coffee": {
         "url": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80",
-        "keywords": ["kofe", "qahva", "choyxona", "kafe", "qayerdasan", "nima qilyapsan"],
+        "keywords": ["kofe", "qahva", "choyxona", "kafe", "qayerdasan", "qayerdasiz"],
         "captions": {
             1: "Qahvaxonada o'tiribman, issiq kofe ichyapman ☕ Siz nimalar bilan bandsiz?",
             2: "Biroz dam olib qahva ichib o'tirgandim ☕ Kuningiz yaxshi o'tyaptimi?",
@@ -32,7 +80,7 @@ ATMOSPHERE_GALLERY: dict[str, dict[str, Any]] = {
     },
     "work": {
         "url": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80",
-        "keywords": ["ish", "ishdaman", "loyiha", "noutbuk", "kompyuter", "band"],
+        "keywords": ["ish", "ishdaman", "loyiha", "noutbuk", "kompyuter", "nima qilyapsan", "nima qilyapsiz"],
         "captions": {
             1: "Ishlarimni yakunlayapman, biroz band edim 💻 Ishlaringiz yaxshimi?",
             2: "Noutbukda yangi vazifalarni qilyapman 💻 Charchab qolmayapsizmi?",
@@ -76,26 +124,74 @@ ATMOSPHERE_GALLERY: dict[str, dict[str, Any]] = {
     },
 }
 
-PHOTO_KEYWORDS = (
-    "rasm", "rasming", "rasmingni", "surat", "surating", "foto", "selfi",
-    "rasm tashla", "rasmingni tashla", "rasmingni ko'ray", "suratingni tashla",
-    "qayerdasan", "nima qilyapsan", "rasming bormi", "surat yubor", "rasm yubor",
+ATMOSPHERE_GALLERY = PHOTO_GALLERY  # Alias for backward compatibility
+
+# Aniq o'z suratini so'rash iboralari
+SELFIE_KEYWORDS = (
+    "o'z surating", "o'z rasming", "o'zingni rasming", "o'zingni surating",
+    "suratingni", "rasmingni", "yuzingni", "selfi", "selfie",
+    "o'zingni ko'ray", "o'zingni ko'rsat", "surating bormi", "rasming bormi",
+    "qani rasming", "turingni ko'ray", "o'zing qandaysan", "rasmingni tashla",
+    "suratingni tashla", "o'z suratingni yubor", "o'zingni rasm", "o'z rasmingni",
+    "rasmingni ko'rsat", "suratingni ko'rsat", "yuzingni ko'ray", "surating",
+)
+
+ATMOSPHERE_KEYWORDS = (
+    "qayerdasan", "qayerdasiz", "nima qilyapsan", "nima qilyapsiz",
+    "atrof", "manzara", "qayerdaligingni", "xona", "joy",
+    "kofe", "qahva", "choyxona", "kafe", "ishdaman",
+)
+
+ALL_PHOTO_KEYWORDS = SELFIE_KEYWORDS + ATMOSPHERE_KEYWORDS + (
+    "rasm", "surat", "foto", "rasm tashla", "surat tashla",
 )
 
 
 def is_photo_requested(text: str) -> bool:
     """Foydalanuvchi xabarida rasm so'ralganligini aniqlaydi."""
     lower = text.lower()
-    return any(kw in lower for kw in PHOTO_KEYWORDS)
+    return any(kw in lower for kw in ALL_PHOTO_KEYWORDS)
 
 
-def get_photo_category(text: str) -> str:
-    """Matn ma'nosiga qarab mos rasm toifasini tanlaydi."""
+def is_selfie_requested(text: str) -> bool:
+    """Foydalanuvchi aynan AI personajining o'z suratini so'raganligini aniqlaydi."""
     lower = text.lower()
-    for cat, data in ATMOSPHERE_GALLERY.items():
-        if any(kw in lower for kw in data["keywords"]):
-            return cat
-    return random.choice(list(ATMOSPHERE_GALLERY.keys()))
+    return any(kw in lower for kw in SELFIE_KEYWORDS)
+
+
+def get_photo_category(text: str, role: str = "qiz_dost") -> str:
+    """
+    Matn ma'nosiga va personaj roliga qarab mos rasm toifasini tanlaydi:
+    - O'z surati so'ralsa -> selfie (ayol yoki erkak)
+    - Qayerdaligi/nima qilayotgani so'ralsa -> atmosfera (kofe, ish, shahar)
+    """
+    lower = text.lower()
+
+    # 1. Agar foydalanuvchi aynan o'z suratini (selfi) so'rayotgan bo'lsa
+    if is_selfie_requested(lower):
+        if role in FEMALE_ROLES:
+            return random.choice(["selfie_female_1", "selfie_female_2"])
+        else:
+            return random.choice(["selfie_male_1", "selfie_male_2"])
+
+    # 2. Agar joy / mashg'ulot so'ralayotgan bo'lsa
+    if any(k in lower for k in ["kofe", "qahva", "kafe", "qayerdasan", "qayerdasiz"]):
+        return "coffee"
+    if any(k in lower for k in ["ish", "ishdaman", "noutbuk", "kompyuter", "nima qilyapsan", "nima qilyapsiz"]):
+        return "work"
+    if any(k in lower for k in ["kechqurun", "oqshom", "shahar", "sayr"]):
+        return "evening"
+    if any(k in lower for k in ["uy", "dam", "choy"]):
+        return "tea_home"
+    if any(k in lower for k in ["kitob", "o'qish", "dars"]):
+        return "study"
+
+    # 3. Agar umumiy "rasm tashla", "surat yubor" deyilgan bo'lsa
+    # Foydalanuvchilar odatda bunday deganda ham o'z suratini kutishadi!
+    if role in FEMALE_ROLES:
+        return random.choice(["selfie_female_1", "selfie_female_2"])
+    else:
+        return random.choice(["selfie_male_1", "selfie_male_2"])
 
 
 async def get_or_download_photo(category: str) -> str | None:
@@ -103,11 +199,11 @@ async def get_or_download_photo(category: str) -> str | None:
     Rasm faylini diskdan oladi yoki yuklab oladi.
     Agar yuklab bo'lmasa, to'g'ridan-to'g'ri URL qaytaradi.
     """
-    cat_data = ATMOSPHERE_GALLERY.get(category, ATMOSPHERE_GALLERY["coffee"])
+    cat_data = PHOTO_GALLERY.get(category, PHOTO_GALLERY["selfie_female_1"])
     url = cat_data["url"]
     file_path = ASSETS_DIR / f"{category}.jpg"
 
-    if file_path.exists() and file_path.stat().st_size > 500:
+    if file_path.exists() and file_path.stat().st_size > 1000:
         return str(file_path)
 
     try:
@@ -131,6 +227,6 @@ def get_photo_caption(category: str, level: int = 1, role: str = "qiz_dost", gam
         level = 5
 
     lvl = max(1, min(5, level))
-    cat_data = ATMOSPHERE_GALLERY.get(category, ATMOSPHERE_GALLERY["coffee"])
+    cat_data = PHOTO_GALLERY.get(category, PHOTO_GALLERY["selfie_female_1"])
     captions = cat_data.get("captions", {})
     return captions.get(lvl, captions.get(1, "Mana hozirgi holatim 😊"))
