@@ -35,8 +35,8 @@ class Settings(BaseSettings):
 
     # --- Hyper-Realistic Emotional TTS (ElevenLabs / OpenAI) ---
     ELEVENLABS_API_KEY: str = ""
-    ELEVENLABS_VOICE_ID_FEMALE: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel (iliq, muloyim ayol ovozi)
-    ELEVENLABS_VOICE_ID_MALE: str = "ErXwobaYiN019PkySvjV"    # Antoni (iliq, salobatli erkak ovozi)
+    ELEVENLABS_VOICE_ID_FEMALE: str = "cgSgspJ2msm6clMCkdW9"  # Jessica (iliq, quvnoq, samimiy ayol ovozi)
+    ELEVENLABS_VOICE_ID_MALE: str = "iP95p4xoKVk53GoZ742B"    # Chris (samimiy, iliq erkak ovozi)
     OPENAI_API_KEY: str = ""
 
     # --- Google Cloud (TTS / STT) ---
