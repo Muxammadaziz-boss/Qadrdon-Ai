@@ -82,7 +82,7 @@ async def _tts_elevenlabs(text: str, voice_type: str) -> str | None:
     voice_id = (
         getattr(settings, "ELEVENLABS_VOICE_ID_FEMALE", "cgSgspJ2msm6clMCkdW9")
         if is_female
-        else getattr(settings, "ELEVENLABS_VOICE_ID_MALE", "iP95p4xoKVk53GoZ742B")
+        else getattr(settings, "ELEVENLABS_VOICE_ID_MALE", "agoC45V78njTIxYzwmSb")
     )
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
