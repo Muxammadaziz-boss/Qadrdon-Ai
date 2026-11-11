@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
+    # --- Hyper-Realistic Emotional TTS (ElevenLabs / OpenAI) ---
+    ELEVENLABS_API_KEY: str = ""
+    ELEVENLABS_VOICE_ID_FEMALE: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel (iliq, muloyim ayol ovozi)
+    ELEVENLABS_VOICE_ID_MALE: str = "ErXwobaYiN019PkySvjV"    # Antoni (iliq, salobatli erkak ovozi)
+    OPENAI_API_KEY: str = ""
+
     # --- Google Cloud (TTS / STT) ---
     GOOGLE_CLOUD_PROJECT: str = ""
     GOOGLE_APPLICATION_CREDENTIALS: str = ""

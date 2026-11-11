@@ -4,7 +4,7 @@ Barcha humanizer modullarini birlashtirib insondek jonli matn tayyorlaydi.
 """
 
 from ai.humanizer.emoji_inserter import insert_emojis
-from ai.humanizer.slang_mixer import mix_slang
+from ai.humanizer.slang_mixer import fix_conversational_grammar, mix_slang
 from ai.humanizer.typo_maker import add_typos
 from ai.prompts.relationship_levels import get_level_emojis
 from ai.prompts.roles import ROLES
@@ -21,6 +21,9 @@ def humanize(text: str, ai_profile) -> tuple[str, str | None]:
     game_mode = getattr(ai_profile, "game_mode", "story") or "story"
 
     role_emojis = get_level_emojis(role=role, level=level, game_mode=game_mode)
+
+    # 0. Jonli so'zlashuv grammatikasini to'g'rilash (masalan: chiqibdimi -> chiqdimi)
+    text = fix_conversational_grammar(text)
 
     # 1. Slang qo'llash
     if getattr(ai_profile, "use_slang", True):

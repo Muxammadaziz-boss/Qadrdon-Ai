@@ -1,8 +1,18 @@
 """Humanizer testlari."""
 
-from ai.humanizer.slang_mixer import mix_slang
+from ai.humanizer.slang_mixer import fix_conversational_grammar, mix_slang
 from ai.humanizer.typo_maker import add_typos
 from ai.humanizer.emoji_inserter import insert_emojis
+
+
+def test_fix_conversational_grammar():
+    """Jonli so'zlashuvda eshitilgan o'tgan zamon shakllari to'g'rilanishini tekshiradi."""
+    raw = "Voy, oxirida xatolik chiqibdimi? Charchabsizmi?"
+    fixed = fix_conversational_grammar(raw)
+    assert "chiqdimi" in fixed
+    assert "chiqibdimi" not in fixed
+    assert "charchadingizmi" in fixed
+    assert "charchabsizmi" not in fixed
 
 
 def test_slang_mixer_quotes_and_punctuation():

@@ -24,6 +24,24 @@ SLANG_DICTIONARY = {
 _WORD_REGEX = re.compile(r"^(\W*)(.*?)(\W*)$", re.UNICODE)
 
 
+def fix_conversational_grammar(text: str) -> str:
+    """Sun'iy kitobiy yoki eshitilgan zamon shakllarini jonli o'zbekcha so'zlashuv shakliga o'tkazadi."""
+    replacements = [
+        (r"\bchiqibdimi\b", "chiqdimi"),
+        (r"\bchiqibdimi\?", "chiqdimi?"),
+        (r"\bbo'libdimi\b", "bo'ldimi"),
+        (r"\bkelibdimi\b", "keldimi"),
+        (r"\bko'ribsizmi\b", "ko'rdingizmi"),
+        (r"\bqilibsizmi\b", "qildingizmi"),
+        (r"\bcharchabsizmi\b", "charchadingizmi"),
+        (r"\bovqatlanibsizmi\b", "ovqatlandingizmi"),
+        (r"\byetib\s+olibsizmi\b", "yetib oldingizmi"),
+    ]
+    for pattern, repl in replacements:
+        text = re.sub(pattern, repl, text, flags=re.IGNORECASE)
+    return text
+
+
 def mix_slang(text: str, use_slang: bool = True) -> str:
     """Matndagi ba'zi so'zlarni Telegram chatiga xos jonli variantlarga almashtiradi."""
     if not use_slang:
