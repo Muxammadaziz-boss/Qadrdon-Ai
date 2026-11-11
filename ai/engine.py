@@ -31,6 +31,8 @@ class AiEngine:
         conversation_history: list[dict],
         ai_profile: Any,
         contact_name: str = "",
+        image_bytes: bytes | None = None,
+        image_mime_type: str = "image/jpeg",
     ) -> dict[str, Any]:
         """
         AI javob yaratadi va uni insonlashtiradi.
@@ -70,6 +72,8 @@ class AiEngine:
             system_instruction=system_instruction,
             conversation_history=conversation_history,
             user_message=user_message,
+            image_bytes=image_bytes,
+            image_mime_type=image_mime_type,
         )
 
         # Insoniylashtirish (slang, typo, emoji)
@@ -94,14 +98,23 @@ class AiEngine:
         system_instruction: str,
         conversation_history: list[dict],
         user_message: str,
+        image_bytes: bytes | None = None,
+        image_mime_type: str = "image/jpeg",
     ) -> str:
         if not self.client:
             # Test / Offline rejim
             await asyncio.sleep(0.5)
+            if image_bytes:
+                return "Voy, juda ajoyib rasm ekan! Menga judayam yoqdi 😊"
             return "Salom! Men hozir offline test rejimdaman, API kalit sozlanmagan."
 
         try:
-            contents = self._prepare_gemini_contents(conversation_history, user_message)
+            contents = self._prepare_gemini_contents(
+                conversation_history=conversation_history,
+                user_message=user_message,
+                image_bytes=image_bytes,
+                image_mime_type=image_mime_type,
+            )
 
             # Gemini API orqali chaqirish (avtomatik fallback bilan)
             candidate_models = [
@@ -137,10 +150,12 @@ class AiEngine:
         self,
         conversation_history: list[dict],
         user_message: str,
+        image_bytes: bytes | None = None,
+        image_mime_type: str = "image/jpeg",
     ) -> list[types.Content]:
         """Gemini API uchun xabarlar ketma-ketligini tayyorlaydi.
         
-        - Duplikatsiyaning oldini oladi.
+        - Rasm (multimodal) qo'llab-quvvatlanadi.
         - Ketma-ket bir xil rollarni bitta turnga birlashtiradi (strict alternation).
         - Bo'sh qismlarni filtrlaydi.
         """
@@ -157,7 +172,7 @@ class AiEngine:
             if not raw_turns or raw_turns[-1]["content"] != clean_user_msg or raw_turns[-1]["role"] != "user":
                 raw_turns.append({"role": "user", "content": clean_user_msg})
 
-        if not raw_turns:
+        if not raw_turns and not image_bytes:
             return [
                 types.Content(
                     role="user",
@@ -173,13 +188,28 @@ class AiEngine:
             else:
                 merged_turns.append(dict(turn))
 
-        return [
+        result_contents: list[types.Content] = [
             types.Content(
                 role=turn["role"],
                 parts=[types.Part.from_text(text=turn["content"])]
             )
             for turn in merged_turns
         ]
+
+        if image_bytes:
+            img_part = types.Part.from_bytes(data=image_bytes, mime_type=image_mime_type)
+            prompt_guide = clean_user_msg or (
+                "Foydalanuvchi sizga ushbu rasmni yubordi. Rasmda nima borligini ko'rib, "
+                "xarakteringiz, rolingiz va munosabat darajangizga mos, juda samimiy, insoniy va jonli munosabat bildir."
+            )
+            text_part = types.Part.from_text(text=prompt_guide)
+
+            if result_contents and result_contents[-1].role == "user":
+                result_contents[-1] = types.Content(role="user", parts=[img_part, text_part])
+            else:
+                result_contents.append(types.Content(role="user", parts=[img_part, text_part]))
+
+        return result_contents
 
     def _split_messages(self, text: str, allow_split: bool) -> list[str]:
         if not allow_split or len(text) < 120 or "\n" not in text:
