@@ -25,6 +25,7 @@ from ai.characters import get_character_model
 from ai.quests.manager import check_secret_quest_trigger
 from business.utils.human_delay import calculate_delay
 from business.utils.typing_simulator import simulate_recording_voice, simulate_typing
+from business.utils.read_receipt import mark_business_message_as_read
 from voice.tts_engine import text_to_speech
 from db.models import AiProfile, Contact, Conversation, Message, Subscription, User
 from db.session import async_session
@@ -410,7 +411,16 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
             logger.error("Limit xabari yuborishda xato: {}", exc)
         return
 
-    # 4. Kontakt ma'lumotlari
+    # 4. Kelgan xabarni o'qilgan (double true / ✓✓) holatiga o'tkazish
+    incoming_message_id = message.message_id
+    await mark_business_message_as_read(
+        bot=bot,
+        business_connection_id=business_connection_id,
+        chat_id=chat_id,
+        message_id=incoming_message_id,
+    )
+
+    # Kontakt ma'lumotlari
     contact_name = ""
     if message.from_user:
         contact_name = message.from_user.full_name or message.from_user.first_name or ""
@@ -555,6 +565,14 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
     except Exception as exc:
         logger.error("Javob yuborishda xato: {}", exc)
         return
+
+    # Xabarni qayta o'qilgan (double true / ✓✓) holatiga o'tkazish
+    await mark_business_message_as_read(
+        bot=bot,
+        business_connection_id=business_connection_id,
+        chat_id=chat_id,
+        message_id=incoming_message_id,
+    )
 
     # 11. AI javobini fon rejimida bazaga saqlash va hisoblagichni oshirish
     asyncio.create_task(

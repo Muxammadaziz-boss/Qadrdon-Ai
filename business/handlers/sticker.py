@@ -18,6 +18,7 @@ from business.handlers.message import (
     _increment_daily_usage,
     _save_message,
 )
+from business.utils.read_receipt import mark_business_message_as_read
 
 sticker_router = Router(name="sticker")
 
@@ -83,6 +84,15 @@ async def handle_business_sticker(message: types.Message, bot: Bot) -> None:
         sticker_emoji,
     )
 
+    # Kelgan stikerni o'qilgan (✓✓) holatiga o'tkazish
+    incoming_message_id = message.message_id
+    await mark_business_message_as_read(
+        bot=bot,
+        business_connection_id=business_connection_id,
+        chat_id=chat_id,
+        message_id=incoming_message_id,
+    )
+
     contact_name = ""
     if message.from_user:
         contact_name = message.from_user.full_name or message.from_user.first_name or ""
@@ -117,6 +127,13 @@ async def handle_business_sticker(message: types.Message, bot: Bot) -> None:
             chat_id=chat_id,
             text=response,
             business_connection_id=business_connection_id,
+        )
+
+        await mark_business_message_as_read(
+            bot=bot,
+            business_connection_id=business_connection_id,
+            chat_id=chat_id,
+            message_id=incoming_message_id,
         )
 
         await _save_message(

@@ -17,6 +17,7 @@ from business.handlers.message import (
     _save_message,
 )
 from business.utils.typing_simulator import simulate_typing
+from business.utils.read_receipt import mark_business_message_as_read
 
 photo_router = Router(name="photo")
 
@@ -74,6 +75,15 @@ async def handle_business_photo(message: types.Message, bot: Bot) -> None:
         chat_id,
     )
 
+    # Kelgan rasmni o'qilgan (✓✓) holatiga o'tkazish
+    incoming_message_id = message.message_id
+    await mark_business_message_as_read(
+        bot=bot,
+        business_connection_id=business_connection_id,
+        chat_id=chat_id,
+        message_id=incoming_message_id,
+    )
+
     contact_name = ""
     if message.from_user:
         contact_name = message.from_user.full_name or message.from_user.first_name or ""
@@ -110,6 +120,13 @@ async def handle_business_photo(message: types.Message, bot: Bot) -> None:
             chat_id=chat_id,
             text=response_text,
             business_connection_id=business_connection_id,
+        )
+
+        await mark_business_message_as_read(
+            bot=bot,
+            business_connection_id=business_connection_id,
+            chat_id=chat_id,
+            message_id=incoming_message_id,
         )
 
         # AI javobini saqlash va limitni oshirish

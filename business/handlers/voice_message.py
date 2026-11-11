@@ -26,6 +26,7 @@ from business.handlers.message import (
     _save_message,
 )
 from business.utils.typing_simulator import simulate_recording_voice, simulate_typing
+from business.utils.read_receipt import mark_business_message_as_read
 from voice.stt_engine import speech_to_text
 from voice.tts_engine import text_to_speech
 
@@ -69,6 +70,15 @@ async def handle_business_voice_message(message: types.Message, bot: Bot) -> Non
         business_connection_id,
         chat_id,
         duration,
+    )
+
+    # Kelgan ovozli xabarni o'qilgan (double true / ✓✓) holatiga o'tkazish
+    incoming_message_id = message.message_id
+    await mark_business_message_as_read(
+        bot=bot,
+        business_connection_id=business_connection_id,
+        chat_id=chat_id,
+        message_id=incoming_message_id,
     )
 
     contact_name = ""
@@ -153,6 +163,14 @@ async def handle_business_voice_message(message: types.Message, bot: Bot) -> Non
             message_type="voice",
         )
         await _increment_daily_usage(user)
+
+        # Xabarni o'qilganligini yana bir bor tasdiqlash (✓✓)
+        await mark_business_message_as_read(
+            bot=bot,
+            business_connection_id=business_connection_id,
+            chat_id=chat_id,
+            message_id=incoming_message_id,
+        )
 
     except Exception as exc:
         logger.error("Ovozli javob yuborishda xato: {}, matn ko'rinishida yuborilmoqda", exc)
