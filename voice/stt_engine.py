@@ -1,166 +1,75 @@
 """Qadirdon AI — Speech-to-Text (STT) dvigatel.
 
-Google Cloud Speech-to-Text API yordamida audio ma'lumotni
-matnga aylantiradi. Oddiy va streaming rejimlarini qo'llab-quvvatlaydi.
+Google Gemini multimodal AI yordamida audio (ovozli xabar)
+ma'lumotlarini matnga aylantiradi (transkripsiya qiladi).
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator, Optional
-
-try:
-    from google.cloud import speech
-except ImportError:
-    speech = None
-
+from google import genai
+from google.genai import types
 from loguru import logger
 
+from config.settings import settings
 
-# ---------------------------------------------------------------------------
-# Google STT mijoz
-# ---------------------------------------------------------------------------
-_client = None
-
-
-def _get_client():
-    """Lazy-init STT async client."""
-    global _client
-    if speech is None:
-        raise RuntimeError("google-cloud-speech kutubxonasi o'rnatilmagan.")
-    if _client is None:
-        _client = speech.SpeechAsyncClient()
-    return _client
-
-
-def _normalize_language_code(lang: str) -> str:
-    """Qisqartirilgan til kodini BCP-47 formatiga o'tkazadi."""
-    mapping = {
-        "uz": "uz-UZ",
-        "ru": "ru-RU",
-        "en": "en-US",
-        "tr": "tr-TR",
-    }
-    return mapping.get(lang.lower(), lang)
-
-
-# ---------------------------------------------------------------------------
-# Oddiy (batch) tanib olish
-# ---------------------------------------------------------------------------
 
 async def speech_to_text(
     audio_bytes: bytes,
     language: str = "uz",
-    sample_rate_hertz: int = 48000,
+    mime_type: str = "audio/ogg",
 ) -> str:
-    """Audio baytlarni matnga aylantiradi.
+    """Audio baytlarni matnga aylantiradi (Gemini 2.0 / 3.x Flash orqali).
 
     Args:
-        audio_bytes: Audio ma'lumot (OGG_OPUS yoki LINEAR16).
-        language: Til kodi — "uz" yoki "ru".
-        sample_rate_hertz: Audio sample rate.
+        audio_bytes: Audio fayl baytlari (OGG yoki MP3).
+        language: Til kodi ("uz" yoki "ru").
+        mime_type: Audio fayl mime-type'i.
 
     Returns:
-        Tanib olingan matn yoki bo'sh satr.
+        Transkripsiya qilingan matn.
     """
-    language_code = _normalize_language_code(language)
-
-    logger.debug(
-        "STT so'rov: lang={}, audio_hajmi={} bayt",
-        language_code,
-        len(audio_bytes),
-    )
-
-    client = _get_client()
-
-    config = speech.RecognitionConfig(
-        encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
-        sample_rate_hertz=sample_rate_hertz,
-        language_code=language_code,
-        # Qo'shimcha tillarni ham tanib olishga harakat qiladi
-        alternative_language_codes=["ru-RU"] if language_code == "uz-UZ" else ["uz-UZ"],
-        enable_automatic_punctuation=True,
-        model="latest_long",
-    )
-
-    audio = speech.RecognitionAudio(content=audio_bytes)
-
-    response = await client.recognize(config=config, audio=audio)
-
-    if not response.results:
-        logger.warning("STT: hech narsa tanib olinmadi")
+    if not audio_bytes:
         return ""
 
-    transcript = " ".join(
-        result.alternatives[0].transcript
-        for result in response.results
-        if result.alternatives
+    if not settings.GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY topilmadi, audio transkripsiyasiz qaytarilmoqda.")
+        return ""
+
+    # Normalizing MIME type for Gemini
+    m_type = "audio/ogg" if "ogg" in mime_type.lower() else "audio/mp3"
+
+    prompt = (
+        "Ushbu audio/ovozli xabardagi gaplarni aynan matn ko'rinishida yozib ber (aniq transkripsiya qil). "
+        "Faqat eshitilgan matnni o'zini qaytar, hech qanday qo'shimcha tushuntirish, sarlavha yoki izoh yozma."
     )
 
-    logger.info("STT natija: {!r}", transcript[:100])
-    return transcript.strip()
-
-
-# ---------------------------------------------------------------------------
-# Streaming tanib olish (real-time qo'ng'iroqlar uchun)
-# ---------------------------------------------------------------------------
-
-async def stream_speech_to_text(
-    audio_stream: AsyncIterator[bytes],
-    language: str = "uz",
-    sample_rate_hertz: int = 48000,
-) -> AsyncIterator[str]:
-    """Audio oqimni real-time matnga aylantiradi.
-
-    Bu funksiya streaming recognition yordamida ishlaydi —
-    audio kelishi bilan natijalarni qaytaradi.
-
-    Args:
-        audio_stream: Audio parchalari oqimi.
-        language: Til kodi.
-        sample_rate_hertz: Audio sample rate.
-
-    Yields:
-        Tanib olingan matn parchalari.
-    """
-    language_code = _normalize_language_code(language)
-    client = _get_client()
-
-    streaming_config = speech.StreamingRecognitionConfig(
-        config=speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=sample_rate_hertz,
-            language_code=language_code,
-            enable_automatic_punctuation=True,
-            model="latest_long",
-        ),
-        interim_results=True,
-    )
-
-    async def _request_generator():
-        """Audio oqimni streaming so'rovlarga aylantiradi."""
-        # Birinchi so'rov — konfiguratsiya
-        yield speech.StreamingRecognizeRequest(
-            streaming_config=streaming_config,
-        )
-        # Keyingi so'rovlar — audio ma'lumot
-        async for chunk in audio_stream:
-            yield speech.StreamingRecognizeRequest(audio_content=chunk)
-
-    logger.debug("STT streaming boshlandi: lang={}", language_code)
+    candidate_models = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.1-flash-lite",
+    ]
 
     try:
-        responses = await client.streaming_recognize(
-            requests=_request_generator(),
-        )
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        for model_name in candidate_models:
+            try:
+                response = await asyncio.to_thread(
+                    client.models.generate_content,
+                    model=model_name,
+                    contents=[
+                        types.Part.from_bytes(data=audio_bytes, mime_type=m_type),
+                        prompt,
+                    ],
+                )
+                if response and response.text:
+                    text = response.text.strip()
+                    logger.info("STT muvaffaqiyatli ({}): {!r}", model_name, text[:80])
+                    return text
+            except Exception as model_err:
+                logger.warning("STT model {} xatosi: {}, keyingi model tekshirilmoqda...", model_name, model_err)
+                continue
+    except Exception as exc:
+        logger.error("STT umumiy xatolik: {}", exc)
 
-        async for response in responses:
-            for result in response.results:
-                if result.is_final and result.alternatives:
-                    transcript = result.alternatives[0].transcript.strip()
-                    if transcript:
-                        logger.debug("STT stream natija: {!r}", transcript[:80])
-                        yield transcript
-    except Exception as e:
-        logger.error("STT streaming xatolik: {}", e)
-        raise
+    return ""

@@ -95,9 +95,9 @@ class AiEngine:
 
             # Gemini API orqali chaqirish (avtomatik fallback bilan)
             candidate_models = [
-                getattr(settings, "GEMINI_MODEL", "gemini-3.1-flash-lite"),
                 "gemini-3.5-flash-lite",
                 "gemini-3.8-flash",
+                getattr(settings, "GEMINI_MODEL", "gemini-3.5-flash-lite"),
             ]
             last_error = None
             for model_name in candidate_models:

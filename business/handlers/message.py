@@ -7,9 +7,13 @@ AI javob generatsiya qiladi va foydalanuvchining shaxsiy profilidan yuboradi.
 from __future__ import annotations
 
 import asyncio
+import os
+import random
 import time
+from pathlib import Path
 
 from aiogram import Bot, F, Router, types
+from aiogram.types import FSInputFile
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
@@ -20,7 +24,8 @@ from ai.trust_evaluator import evaluate_message_trust
 from ai.characters import get_character_model
 from ai.quests.manager import check_secret_quest_trigger
 from business.utils.human_delay import calculate_delay
-from business.utils.typing_simulator import simulate_typing
+from business.utils.typing_simulator import simulate_recording_voice, simulate_typing
+from voice.tts_engine import text_to_speech
 from db.models import AiProfile, Contact, Conversation, Message, Subscription, User
 from db.session import async_session
 
@@ -464,51 +469,88 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
     if delay_seconds > 0:
         await asyncio.sleep(min(delay_seconds, 1.0))
 
-    # 10. Javobni yuborish
+    # 10. Javobni yuborish (Ovozli yoki Matnli)
+    VOICE_REQUEST_KEYWORDS = (
+        "ovozli", "ovozing", "audio", "gapir", "eshitay",
+        "gapirib ber", "ovoz chiqar", "ovoz yubor", "audio yoz",
+        "audio tashla", "ovoz tashla", "ovozingizni", "ovozingni",
+    )
+    lower_user_text = user_text.lower()
+    user_asked_voice = any(kw in lower_user_text for kw in VOICE_REQUEST_KEYWORDS)
+    voice_enabled = getattr(ai_profile, "voice_enabled", False)
+
+    should_send_voice = user_asked_voice or (voice_enabled and random.random() < 0.35)
+    voice_sent = False
+
+    if should_send_voice:
+        try:
+            voice_path = await text_to_speech(
+                text=response_text,
+                voice_type=getattr(ai_profile, "voice_type", "female_warm"),
+                language="uz",
+            )
+            # «ovozli xabar yozmoqda...» amali
+            record_duration = max(1.5, min(3.5, len(response_text) * 0.04))
+            await simulate_recording_voice(bot, chat_id, business_connection_id, duration=record_duration)
+
+            await bot.send_voice(
+                chat_id=chat_id,
+                voice=FSInputFile(voice_path),
+                business_connection_id=business_connection_id,
+            )
+            full_response = f"[Ovozli xabar: {response_text}]"
+            voice_sent = True
+            Path(voice_path).unlink(missing_ok=True)
+            logger.info("Ovozli javob yuborildi: user_id={}, chat_id={}", user.id, chat_id)
+        except Exception as v_err:
+            logger.warning("Ovozli xabar yuborishda xato: {}, matnga o'tilmoqda: {}", v_err)
+            voice_sent = False
+
     try:
-        if len(parts) > 1 and getattr(ai_profile, "message_splitting", True):
-            # Bo'lib yuborish
-            for i, part in enumerate(parts):
+        if not voice_sent:
+            if len(parts) > 1 and getattr(ai_profile, "message_splitting", True):
+                # Bo'lib yuborish
+                for i, part in enumerate(parts):
+                    await simulate_typing(
+                        bot, chat_id, business_connection_id, part,
+                        typing_speed=ai_profile.typing_speed,
+                    )
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=part,
+                        business_connection_id=business_connection_id,
+                    )
+
+                    if i < len(parts) - 1:
+                        inter_delay = calculate_delay(
+                            text_length=len(parts[i + 1]),
+                            typing_speed=ai_profile.typing_speed,
+                        )
+                        await asyncio.sleep(min(inter_delay, 1.0))
+
+                full_response = "\n".join(parts)
+            else:
+                # Bitta xabar
                 await simulate_typing(
-                    bot, chat_id, business_connection_id, part,
+                    bot, chat_id, business_connection_id, response_text,
                     typing_speed=ai_profile.typing_speed,
                 )
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=part,
+                    text=response_text,
                     business_connection_id=business_connection_id,
                 )
+                full_response = response_text
 
-                if i < len(parts) - 1:
-                    inter_delay = calculate_delay(
-                        text_length=len(parts[i + 1]),
-                        typing_speed=ai_profile.typing_speed,
-                    )
-                    await asyncio.sleep(min(inter_delay, 1.0))
-
-            full_response = "\n".join(parts)
-        else:
-            # Bitta xabar
-            await simulate_typing(
-                bot, chat_id, business_connection_id, response_text,
-                typing_speed=ai_profile.typing_speed,
-            )
-            await bot.send_message(
-                chat_id=chat_id,
-                text=response_text,
-                business_connection_id=business_connection_id,
-            )
-            full_response = response_text
-
-        # Typo correction
-        if correction:
-            await asyncio.sleep(0.6)
-            await bot.send_message(
-                chat_id=chat_id,
-                text=correction,
-                business_connection_id=business_connection_id,
-            )
-            full_response += f"\n{correction}"
+            # Typo correction
+            if correction:
+                await asyncio.sleep(0.6)
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=correction,
+                    business_connection_id=business_connection_id,
+                )
+                full_response += f"\n{correction}"
 
     except Exception as exc:
         logger.error("Javob yuborishda xato: {}", exc)

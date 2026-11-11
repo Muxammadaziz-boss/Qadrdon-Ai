@@ -76,3 +76,22 @@ async def simulate_typing(
         sleep_time = min(_TYPING_ACTION_INTERVAL, duration - elapsed)
         await asyncio.sleep(sleep_time)
         elapsed += sleep_time
+
+
+async def simulate_recording_voice(
+    bot: Bot,
+    chat_id: int,
+    business_connection_id: str,
+    duration: float = 2.0,
+) -> None:
+    """Telegramda «ovozli xabar yozmoqda...» (record_voice) holatini ko'rsatadi."""
+    try:
+        await bot.send_chat_action(
+            chat_id=chat_id,
+            action=ChatAction.RECORD_VOICE,
+            business_connection_id=business_connection_id,
+        )
+        await asyncio.sleep(duration)
+    except Exception as exc:
+        logger.warning("Record voice action xatosi: {}", exc)
+
