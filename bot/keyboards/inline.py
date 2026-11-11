@@ -171,6 +171,11 @@ def settings_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text="📖 Munosabatlar Kundaligi", callback_data="diary:show"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text="❤️ Munosabat darajasi va Rejim", callback_data="settings:relationship"
                 ),
             ],
@@ -296,7 +301,10 @@ def settings_voice_keyboard(role: str = "qiz_dost", show_all: bool = False) -> I
     buttons = []
     if show_all:
         for key, label in all_voices.items():
-            buttons.append([InlineKeyboardButton(text=label, callback_data=f"set_voice:{key}")])
+            buttons.append([
+                InlineKeyboardButton(text=label, callback_data=f"set_voice:{key}"),
+                InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_voice:{key}"),
+            ])
         buttons.append([InlineKeyboardButton(text="🔙 Mos ovozlarga qaytish", callback_data=f"set_vmode:filter:{role}")])
     else:
         if role in FEMALE_ROLES:
@@ -312,7 +320,10 @@ def settings_voice_keyboard(role: str = "qiz_dost", show_all: bool = False) -> I
 
         for key in keys:
             label = all_voices.get(key, key)
-            buttons.append([InlineKeyboardButton(text=label, callback_data=f"set_voice:{key}")])
+            buttons.append([
+                InlineKeyboardButton(text=label, callback_data=f"set_voice:{key}"),
+                InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_voice:{key}"),
+            ])
         buttons.append([InlineKeyboardButton(text="🌐 Barcha ovozlar", callback_data=f"set_vmode:all:{role}")])
 
     buttons.append([InlineKeyboardButton(text="⏩ Ovozni o'chirish", callback_data="set_voice:off")])

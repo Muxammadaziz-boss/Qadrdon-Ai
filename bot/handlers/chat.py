@@ -17,6 +17,7 @@ chat_router = Router(name="bot_message_router")
 
 MENU_BUTTONS = {
     "⚙️ Sozlamalar",
+    "📖 Kundalik",
     "📊 Statistika",
     "💰 Balans va Tariflar",
     "💎 Premium",

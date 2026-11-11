@@ -11,6 +11,7 @@ from loguru import logger
 from config.settings import settings
 from ai.prompts.personality import get_full_system_prompt
 from ai.humanizer.style_adapter import humanize
+from ai.memory.fact_extractor import get_user_facts_prompt
 
 
 class AiEngine:
@@ -55,6 +56,15 @@ class AiEngine:
 
         if contact_name:
             system_instruction += f"\nSuhbatdoshingning ismi: {contact_name}."
+
+        user_id = getattr(ai_profile, "user_id", None)
+        if user_id:
+            try:
+                facts_prompt = await get_user_facts_prompt(user_id)
+                if facts_prompt:
+                    system_instruction += f"\n{facts_prompt}"
+            except Exception as e:
+                logger.debug(f"Xotira faktlarini yuklashda xatolik: {e}")
 
         raw_text = await self._call_gemini(
             system_instruction=system_instruction,

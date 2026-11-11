@@ -61,6 +61,7 @@ class AiProfile(Base, TimestampMixin):
     game_mode: Mapped[str] = mapped_column(String(20), default="story")  # "story" (zabt etish) | "classic" (erkin)
     character_id: Mapped[str | None] = mapped_column(String(50), nullable=True)  # model ID: rayhona, kamola, ...
     unlocked_secrets: Mapped[list[str] | None] = mapped_column(JSON, nullable=True, default=list)
+    proactive_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
     user = relationship("User", back_populates="ai_profiles")

@@ -8,10 +8,13 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     keyboard = [
         [
             KeyboardButton(text="⚙️ Sozlamalar"),
-            KeyboardButton(text="📊 Statistika"),
+            KeyboardButton(text="📖 Kundalik"),
         ],
         [
+            KeyboardButton(text="📊 Statistika"),
             KeyboardButton(text="💰 Balans va Tariflar"),
+        ],
+        [
             KeyboardButton(text="ℹ️ Yordam"),
         ],
     ]

@@ -22,6 +22,13 @@ from ai.engine import AiEngine
 from ai.memory.short_term import get_recent_messages, save_recent_message
 from ai.trust_evaluator import evaluate_message_trust
 from ai.characters import get_character_model
+from ai.characters.photo_manager import (
+    is_photo_requested,
+    get_photo_category,
+    get_or_download_photo,
+    get_photo_caption,
+)
+from ai.memory.fact_extractor import extract_facts_from_text, save_extracted_facts
 from ai.quests.manager import check_secret_quest_trigger
 from business.utils.human_delay import calculate_delay
 from business.utils.typing_simulator import simulate_recording_voice, simulate_typing
@@ -446,6 +453,17 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
         )
     )
 
+    # 7.1 Foydalanuvchi xotira faktlarini ajratib olish va saqlash
+    extracted_facts = extract_facts_from_text(user_text)
+    if extracted_facts:
+        asyncio.create_task(
+            save_extracted_facts(
+                user_id=user.id,
+                conversation_id=conversation.id,
+                facts=extracted_facts,
+            )
+        )
+
     # 8. AI javob generatsiya qilish
     try:
         ai_response = await _ai_engine.generate_response(
@@ -479,17 +497,51 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
     if delay_seconds > 0:
         await asyncio.sleep(min(delay_seconds, 1.0))
 
-    # 10. Javobni yuborish (Ovozli yoki Matnli)
+    # 10. Javobni yuborish (Rasm, Ovozli yoki Matnli)
+    lower_user_text = user_text.lower()
+    user_asked_photo = is_photo_requested(user_text)
+    photo_sent = False
+
+    if user_asked_photo:
+        try:
+            category = get_photo_category(user_text)
+            photo_src = await get_or_download_photo(category)
+            photo_caption = get_photo_caption(
+                category=category,
+                level=getattr(ai_profile, "relationship_level", 1),
+                role=getattr(ai_profile, "role", "qiz_dost"),
+                game_mode=getattr(ai_profile, "game_mode", "story"),
+            )
+            if photo_src.startswith("http"):
+                await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo_src,
+                    caption=photo_caption,
+                    business_connection_id=business_connection_id,
+                )
+            else:
+                await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=FSInputFile(photo_src),
+                    caption=photo_caption,
+                    business_connection_id=business_connection_id,
+                )
+            full_response = f"[Rasm: {photo_caption}]"
+            photo_sent = True
+            logger.info("Rasm muvaffaqiyatli yuborildi: user_id={}, chat_id={}, cat={}", user.id, chat_id, category)
+        except Exception as p_err:
+            logger.warning("Rasm yuborishda xato: {}, ovoz/matnga o'tilmoqda: {}", p_err)
+            photo_sent = False
+
     VOICE_REQUEST_KEYWORDS = (
         "ovozli", "ovozing", "audio", "gapir", "eshitay",
         "gapirib ber", "ovoz chiqar", "ovoz yubor", "audio yoz",
         "audio tashla", "ovoz tashla", "ovozingizni", "ovozingni",
     )
-    lower_user_text = user_text.lower()
     user_asked_voice = any(kw in lower_user_text for kw in VOICE_REQUEST_KEYWORDS)
     voice_enabled = getattr(ai_profile, "voice_enabled", False)
 
-    should_send_voice = user_asked_voice or (voice_enabled and random.random() < 0.35)
+    should_send_voice = not photo_sent and (user_asked_voice or (voice_enabled and random.random() < 0.35))
     voice_sent = False
 
     if should_send_voice:
@@ -517,7 +569,7 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
             voice_sent = False
 
     try:
-        if not voice_sent:
+        if not photo_sent and not voice_sent:
             if len(parts) > 1 and getattr(ai_profile, "message_splitting", True):
                 # Bo'lib yuborish
                 for i, part in enumerate(parts):

@@ -7,6 +7,7 @@ Bitta bot orqali:
 birgalikda to'liq ishlaydi.
 """
 
+import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -15,6 +16,7 @@ from loguru import logger
 from bot.handlers import all_bot_routers
 from bot.middlewares.auth import AuthMiddleware
 from business.handlers import all_business_routers
+from business.tasks.proactive_scheduler import start_proactive_scheduler
 from config.settings import settings
 
 
@@ -56,4 +58,8 @@ async def start_bot() -> None:
         used_updates.append("business_message")
 
     logger.info("Qabul qilinadigan update turlari: {}", used_updates)
-    await dp.start_polling(bot, allowed_updates=used_updates)
+    scheduler_task = asyncio.create_task(start_proactive_scheduler(bot=bot, interval_seconds=300))
+    try:
+        await dp.start_polling(bot, allowed_updates=used_updates)
+    finally:
+        scheduler_task.cancel()

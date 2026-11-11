@@ -6,6 +6,7 @@ from db.models.conversation import Conversation
 from db.models.message import Message
 from db.models.contact import Contact
 from db.models.subscription import Subscription
+from db.models.user_fact import UserFact
 
 __all__ = [
     "User",
@@ -14,5 +15,6 @@ __all__ = [
     "Message",
     "Contact",
     "Subscription",
+    "UserFact",
 ]
 

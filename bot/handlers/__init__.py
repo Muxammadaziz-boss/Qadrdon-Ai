@@ -7,6 +7,7 @@ from bot.handlers.setup_personality import setup_personality_router
 from bot.handlers.setup_language import setup_language_router
 from bot.handlers.setup_voice import setup_voice_router
 from bot.handlers.settings import settings_router
+from bot.handlers.diary import diary_router
 from bot.handlers.premium import premium_router
 from bot.handlers.admin import admin_router
 from bot.handlers.chat import chat_router
@@ -19,6 +20,7 @@ all_bot_routers = [
     setup_personality_router,
     setup_language_router,
     setup_voice_router,
+    diary_router,
     settings_router,
     premium_router,
     chat_router,

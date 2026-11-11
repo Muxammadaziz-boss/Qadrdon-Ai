@@ -41,14 +41,23 @@ async def init_db() -> None:
             ("game_mode", "VARCHAR(20) DEFAULT 'story'"),
             ("character_id", "VARCHAR(50)"),
             ("unlocked_secrets", "TEXT DEFAULT '[]'"),
+            ("proactive_enabled", "BOOLEAN DEFAULT TRUE"),
         ]:
             try:
                 if "sqlite" in settings.DATABASE_URL:
                     await conn.execute(text(f"ALTER TABLE ai_profiles ADD COLUMN {col_name} {col_sql}"))
                 else:
                     await conn.execute(text(f"ALTER TABLE ai_profiles ADD COLUMN IF NOT EXISTS {col_name} {col_sql}"))
-            except Exception:
+            except Exception as e:
                 pass
+
+        try:
+            if "sqlite" in settings.DATABASE_URL:
+                await conn.execute(text("ALTER TABLE conversations ADD COLUMN last_proactive_at DATETIME"))
+            else:
+                await conn.execute(text("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_proactive_at TIMESTAMP WITH TIME ZONE"))
+        except Exception:
+            pass
 
 
 async def get_session() -> AsyncSession:

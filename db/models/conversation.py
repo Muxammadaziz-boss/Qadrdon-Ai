@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, ForeignKey, Integer, String, Text
+from datetime import datetime
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.models.base import Base, TimestampMixin
@@ -28,6 +29,7 @@ class Conversation(Base, TimestampMixin):
     # Kontekst
     last_context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_proactive_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="conversations")

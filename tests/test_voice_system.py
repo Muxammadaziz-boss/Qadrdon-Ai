@@ -45,3 +45,28 @@ def test_text_to_speech_generates_file():
     finally:
         if os.path.exists(path):
             os.remove(path)
+
+
+def test_voice_preview_keyboards():
+    """Ovoz sozlamalari klaviaturalarida '▶️ Tinglash' tugmasi mavjudligini tekshiradi."""
+    from bot.handlers.setup_voice import voice_type_keyboard, VOICE_SAMPLE_PHRASES
+    from bot.keyboards.inline import settings_voice_keyboard
+
+    kb1 = voice_type_keyboard(role="qiz_dost")
+    has_preview = any(
+        btn.callback_data and btn.callback_data.startswith("preview_voice:")
+        for row in kb1.inline_keyboard
+        for btn in row
+    )
+    assert has_preview, "setup_voice klaviaturasida preview_voice tugmasi topilmadi"
+
+    kb2 = settings_voice_keyboard(role="aka")
+    has_preview_settings = any(
+        btn.callback_data and btn.callback_data.startswith("preview_voice:")
+        for row in kb2.inline_keyboard
+        for btn in row
+    )
+    assert has_preview_settings, "settings_voice klaviaturasida preview_voice tugmasi topilmadi"
+    assert "female_soft" in VOICE_SAMPLE_PHRASES
+    assert "male_warm" in VOICE_SAMPLE_PHRASES
+
