@@ -75,7 +75,7 @@ async def _tts_voicelab(
     )
 
     voice_id = (
-        getattr(settings, "VOICELAB_VOICE_ID_FEMALE", "voice_3602ec76-5393-43b6-9e0d-784328cb77ba")
+        getattr(settings, "VOICELAB_VOICE_ID_FEMALE", "voice_EvIb9vE6iY_dWgK7OobYdZcX")
         if is_female
         else getattr(settings, "VOICELAB_VOICE_ID_MALE", "")
     )

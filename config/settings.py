@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- VoiceLab.uz (O'zbekiston milliy tabiiy TTS) ---
     VOICELAB_API_KEY: str = ""
-    VOICELAB_VOICE_ID_FEMALE: str = "voice_3602ec76-5393-43b6-9e0d-784328cb77ba"  # Nozima — Soft (qiz o'rtoq)
+    VOICELAB_VOICE_ID_FEMALE: str = "voice_EvIb9vE6iY_dWgK7OobYdZcX"  # Lola — Expressive (qiz o'rtoq)
     VOICELAB_VOICE_ID_MALE: str = ""
 
     # --- Hyper-Realistic Emotional TTS (ElevenLabs / OpenAI) ---
