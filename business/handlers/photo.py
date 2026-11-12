@@ -161,6 +161,8 @@ async def handle_business_photo(message: types.Message, bot: Bot) -> None:
                 text=response_text,
                 voice_type=getattr(ai_profile, "voice_type", "female_warm"),
                 language="uz",
+                role=getattr(ai_profile, "role", "qiz_dost"),
+                level=getattr(ai_profile, "relationship_level", 1),
             )
             record_duration = max(1.5, min(3.5, len(response_text) * 0.04))
             await simulate_recording_voice(bot, chat_id, business_connection_id, duration=record_duration)

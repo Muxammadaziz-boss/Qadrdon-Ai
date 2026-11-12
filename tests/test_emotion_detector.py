@@ -32,6 +32,20 @@ def test_detect_surprised_emotion():
     assert cfg4.speed > 0.85
 
 
+def test_detect_playful_emotion():
+    text = "Voy tentakvoy, arazlayman hozir sizdan! 😜😏"
+    cfg = detect_speech_emotion(text)
+    assert cfg.name == "playful"
+    assert cfg.speed >= 0.83
+
+
+def test_detect_serious_emotion():
+    text = "Bu juda jiddiy masala, kelajak haqida o'ylayapman 🤔"
+    cfg = detect_speech_emotion(text)
+    assert cfg.name == "serious"
+    assert cfg.speed <= 0.83
+
+
 def test_detect_calm_default():
     text5 = "Bugun tushlikda uyda o'tirdim va kitob o'qidim."
     cfg5 = detect_speech_emotion(text5)
@@ -39,8 +53,23 @@ def test_detect_calm_default():
     assert 0.80 <= cfg5.speed <= 0.86
 
 
+def test_emotion_parameter_overrides():
+    # Test explicit emotion and speed/pitch overrides
+    cfg = detect_speech_emotion(
+        "Oddiy matn",
+        emotion_override="romantic",
+        speed_override=0.76,
+        pitch_override=1.04,
+        intensity=1.3,
+    )
+    assert cfg.name == "romantic"
+    assert cfg.speed == 0.76
+    assert cfg.pitch_factor == 1.04
+    assert cfg.intensity == 1.3
+
+
 def test_emotion_configs_complete():
-    for name in ["romantic", "joyful", "comforting", "surprised", "calm"]:
+    for name in ["romantic", "joyful", "comforting", "surprised", "playful", "serious", "calm"]:
         assert name in EMOTION_CONFIGS
         cfg = EMOTION_CONFIGS[name]
         assert 0.75 <= cfg.speed <= 0.95

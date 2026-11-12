@@ -62,6 +62,7 @@ async def _tts_voicelab(
     voice_type: str = "",
     role: str = "",
     speed: float = 1.0,
+    voice_id_override: str | None = None,
 ) -> str | None:
     """VoiceLab.uz orqali o'zbek milliy tabiiy ovozini yaratish."""
     api_key = getattr(settings, "VOICELAB_API_KEY", "")
@@ -75,9 +76,12 @@ async def _tts_voicelab(
     )
 
     voice_id = (
-        getattr(settings, "VOICELAB_VOICE_ID_FEMALE", "voice_EvIb9vE6iY_dWgK7OobYdZcX")
-        if is_female
-        else getattr(settings, "VOICELAB_VOICE_ID_MALE", "")
+        voice_id_override
+        or (
+            getattr(settings, "VOICELAB_VOICE_ID_FEMALE", "voice_EvIb9vE6iY_dWgK7OobYdZcX")
+            if is_female
+            else getattr(settings, "VOICELAB_VOICE_ID_MALE", "")
+        )
     )
 
     if not voice_id:
@@ -239,28 +243,51 @@ async def text_to_speech(
     level: int = 1,
     apply_effects: bool = True,
     emotion: str | EmotionConfig | None = None,
+    speed_override: float | None = None,
+    pitch_override: float | None = None,
+    intensity: float = 1.0,
+    voice_id_override: str | None = None,
 ) -> str:
-    """Matnni insoniy va his-tuyg'uli ovozga aylantiradi.
+    """Matnni insoniy, fonetik aniq va his-tuyg'uli ovozga aylantiradi.
     
     Bosqichlar:
-    1. Emotion Detector: matn mazmuni va emojilardan hissiy ohangni aniqlaydi (romantik, quvnoq, tasalli, hayrat, sokin).
-    2. Speech Humanizer: matnni jonli so'zlashuv fonetikasiga, hissiy pauzalarga va undovlarga o'tkazadi.
-    3. Multi-provider TTS (VoiceLab.uz -> ElevenLabs -> OpenAI -> Microsoft Edge-TTS) emotsional tezlik bilan.
-    4. Audio Post-Processor: emotsional pitch-shift, smartfon mikrofoni filtri va Telegram native Opus (.ogg).
+    1. Emotion Detector: matn mazmuni va parametrlardan hissiy ohangni aniqlaydi (romantik, quvnoq, tasalli, hayrat, sho'x, jiddiy, sokin).
+    2. Speech Humanizer & Normalizer: matnni to'liq normalizatsiya qiladi (sonlar, qisqartmalar, apostroflar, jonli grammatika, so'zlashuv fonetikasi va pauzalar).
+    3. Multi-provider TTS (VoiceLab.uz -> ElevenLabs -> OpenAI -> Microsoft Edge-TTS) emotsional tezlik va ovoz bilan.
+    4. Audio Post-Processor: emotsional ekvalayzer, smartfon mikrofoni filtri va Telegram native Opus (.ogg).
     """
+    from dataclasses import replace
+
     if isinstance(emotion, EmotionConfig):
         emotion_cfg = emotion
     elif isinstance(emotion, str) and emotion in EMOTION_CONFIGS:
         emotion_cfg = EMOTION_CONFIGS[emotion]
     else:
-        emotion_cfg = detect_speech_emotion(text)
+        emotion_cfg = detect_speech_emotion(
+            text,
+            role=role,
+            emotion_override=emotion if isinstance(emotion, str) else None,
+            speed_override=speed_override,
+            pitch_override=pitch_override,
+            intensity=intensity,
+        )
+
+    # Agar maxsus override parametrlari berilgan bo'lsa
+    if speed_override is not None or pitch_override is not None or intensity != 1.0:
+        emotion_cfg = replace(
+            emotion_cfg,
+            speed=speed_override if speed_override is not None else emotion_cfg.speed,
+            pitch_factor=pitch_override if pitch_override is not None else emotion_cfg.pitch_factor,
+            intensity=intensity,
+        )
 
     logger.info(
-        "Ovoz emotsiyasi tanlandi: {} ({}) | tezlik={:.2f}, pitch={:.2f}",
+        "Ovoz emotsiyasi tanlandi: {} ({}) | tezlik={:.2f}, pitch={:.2f}, shiddat={:.2f}",
         emotion_cfg.name,
         emotion_cfg.description,
         emotion_cfg.speed,
         emotion_cfg.pitch_factor,
+        emotion_cfg.intensity,
     )
 
     speech_text = humanize_for_speech(text, role=role, level=level, emotion_config=emotion_cfg)
@@ -269,12 +296,13 @@ async def text_to_speech(
 
     raw_path: str | None = None
 
-    # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi — emotsional tezlik bilan)
+    # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi — emotsional tezlik va tanlangan ovoz bilan)
     raw_path = await _tts_voicelab(
         speech_text,
         voice_type=voice_type,
         role=role,
         speed=emotion_cfg.speed,
+        voice_id_override=voice_id_override,
     )
 
     # 2. ElevenLabs (agar VoiceLab ishlamasa yoki boshqa rol bo'lsa)

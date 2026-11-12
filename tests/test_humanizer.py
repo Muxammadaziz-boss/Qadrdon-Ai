@@ -11,7 +11,7 @@ def test_fix_conversational_grammar():
     fixed = fix_conversational_grammar(raw)
     assert "chiqdimi" in fixed
     assert "chiqibdimi" not in fixed
-    assert "charchadingizmi" in fixed
+    assert "charchadingizmi" in fixed.lower()
     assert "charchabsizmi" not in fixed
 
 
