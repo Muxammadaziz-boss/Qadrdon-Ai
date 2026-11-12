@@ -184,8 +184,9 @@ async def test_on_typing_speed_chosen_female_role():
 
     # Klaviaturada erkak ovozlari bo'lmasligi kerak (faqat ayol ovozlari)
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-    assert "voice:female_soft" in callbacks
-    assert "voice:male_deep" not in callbacks
+    assert "voice:lola" in callbacks
+    assert "preview_voice:lola" in callbacks
+    assert "voice:davron" not in callbacks
     assert "voice:skip" in callbacks
 
 
@@ -194,19 +195,21 @@ def test_voice_type_keyboard_role_filtering():
     # Qiz do'st: ayol ovozlari
     qiz_kb = voice_type_keyboard(role="qiz_dost", show_all=False)
     qiz_cbs = [btn.callback_data for row in qiz_kb.inline_keyboard for btn in row]
-    assert "voice:female_soft" in qiz_cbs
-    assert "voice:male_warm" not in qiz_cbs
+    assert "voice:lola" in qiz_cbs
+    assert "preview_voice:lola" in qiz_cbs
+    assert "voice:davron" not in qiz_cbs
     assert "vmode:all:qiz_dost" in qiz_cbs
 
     # Aka: erkak ovozlari
     aka_kb = voice_type_keyboard(role="aka", show_all=False)
     aka_cbs = [btn.callback_data for row in aka_kb.inline_keyboard for btn in row]
-    assert "voice:male_warm" in aka_cbs
-    assert "voice:female_soft" not in aka_cbs
+    assert "voice:davron" in aka_cbs
+    assert "preview_voice:davron" in aka_cbs
+    assert "voice:lola" not in aka_cbs
     assert "vmode:all:aka" in aka_cbs
 
     # Show all bo'lsa barcha ovozlar
     all_kb = voice_type_keyboard(role="qiz_dost", show_all=True)
     all_cbs = [btn.callback_data for row in all_kb.inline_keyboard for btn in row]
-    assert "voice:female_soft" in all_cbs
-    assert "voice:male_warm" in all_cbs
+    assert "voice:lola" in all_cbs
+    assert "voice:davron" in all_cbs

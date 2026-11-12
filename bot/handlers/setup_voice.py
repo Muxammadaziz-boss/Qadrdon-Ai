@@ -20,6 +20,13 @@ from config.settings import settings
 from db.models import AiProfile, Subscription, User
 from db.session import async_session
 from voice.tts_engine import text_to_speech
+from voice.uzbek_voices import (
+    UZBEK_VOICES,
+    FEMALE_VOICE_KEYS,
+    MALE_VOICE_KEYS,
+    get_uzbek_voice,
+    resolve_voice_key,
+)
 
 setup_voice_router = Router(name="setup_voice")
 
@@ -27,46 +34,19 @@ setup_voice_router = Router(name="setup_voice")
 FEMALE_ROLES = {"qiz_dost", "ayol", "ona", "opa", "singil"}
 MALE_ROLES = {"aka", "uka"}
 
-# ── Barcha ovoz turlari ──────────────────────────────────────────────────────
-VOICE_TYPES = {
-    # Ayollar / Qizlar ovozlari
-    "female_soft": "👩 Ayol — Yumshoq va mayin",
-    "female_bright": "👩‍🦰 Ayol — Yorqin va sho'x",
-    "female_calm": "🧕 Ayol — Vazmin va samimiy",
-    "female_warm": "🌸 Ayol — Mehribon va iliq",
-    # Erkaklar ovozlari
-    "male_warm": "👨 Erkak — Samimiy va iliq",
-    "male_deep": "🧔‍♂️ Erkak — Salobatli va past",
-    "male_calm": "👨‍💼 Erkak — Vazmin va bosiq",
-    "male_energetic": "⚡ Erkak — Qat'iyatli yigit",
-    # Bolalar / Kenjatoylar uchun
-    "child_playful": "🧒 Bola / Kenjatoy — Quvnoq",
-}
-
-FEMALE_VOICE_KEYS = ["female_soft", "female_bright", "female_calm", "female_warm"]
-MALE_VOICE_KEYS = ["male_warm", "male_deep", "male_calm", "male_energetic"]
-
-VOICE_SAMPLE_PHRASES = {
-    "female_soft": "Assalomu alaykum! Men sizning qadirdon hamrohingizman, ovozim yoqdimi? 😊",
-    "female_bright": "Salom! Men tayyorman, bugun qanday qiziqarli rejalarimiz bor? ✨",
-    "female_calm": "Assalomu alaykum. Xush kelibsiz, kuningiz xayrli va xotirjam o'tsin.",
-    "female_warm": "Assalomu alaykum! Sizni ko'rib turganimdan judayam xursandman 🌸",
-    "male_warm": "Assalomu alaykum! Ishlar yaxshimi, do'stim? Men har doim aloqadaman 🤝",
-    "male_deep": "Assalomu alaykum. Sizga qanday yordam bera olaman?",
-    "male_calm": "Salom. Barchasi yaxshi, xotirjam suhbatlashamiz.",
-    "male_energetic": "Salom! Keling, barcha rejalarni birgalikda amalga oshiramiz! ⚡",
-    "child_playful": "Salom! Keling, birga o'ynaymiz va qiziq narsalar haqida gaplashamiz! 😄",
-}
+# ── Barcha yangi O'zbek milliy ovozlari ─────────────────────────────────────────
+VOICE_TYPES = {k: v.name for k, v in UZBEK_VOICES.items()}
+VOICE_SAMPLE_PHRASES = {k: v.sample_phrase for k, v in UZBEK_VOICES.items()}
 
 
 def voice_type_keyboard(role: str = "qiz_dost", show_all: bool = False) -> InlineKeyboardMarkup:
-    """Rolga mos ovoz turi tanlash klaviaturasi."""
+    """Rolga mos milliy o'zbek ovozlarini tanlash klaviaturasi."""
     buttons = []
 
     if show_all:
-        for key, label in VOICE_TYPES.items():
+        for key, voice in UZBEK_VOICES.items():
             buttons.append([
-                InlineKeyboardButton(text=label, callback_data=f"voice:{key}"),
+                InlineKeyboardButton(text=voice.name, callback_data=f"voice:{key}"),
                 InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_voice:{key}"),
             ])
         buttons.append([InlineKeyboardButton(text="🔙 Mos ovozlarga qaytish", callback_data=f"vmode:filter:{role}")])
@@ -80,12 +60,14 @@ def voice_type_keyboard(role: str = "qiz_dost", show_all: bool = False) -> Inlin
             if role == "uka":
                 keys.append("child_playful")
         else:
-            keys = list(VOICE_TYPES.keys())
+            keys = list(UZBEK_VOICES.keys())
 
         for key in keys:
-            label = VOICE_TYPES.get(key, key)
+            voice = UZBEK_VOICES.get(key)
+            if not voice:
+                continue
             buttons.append([
-                InlineKeyboardButton(text=label, callback_data=f"voice:{key}"),
+                InlineKeyboardButton(text=voice.name, callback_data=f"voice:{key}"),
                 InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_voice:{key}"),
             ])
 
@@ -99,20 +81,22 @@ def voice_type_keyboard(role: str = "qiz_dost", show_all: bool = False) -> Inlin
 async def on_preview_voice(callback: CallbackQuery) -> None:
     """Ovoz namunasini bot orqali tinglab ko'rish."""
     voice_key = callback.data.split(":")[1]
-    label = VOICE_TYPES.get(voice_key, "Ovoz namunasi")
-    sample_text = VOICE_SAMPLE_PHRASES.get(
-        voice_key,
-        "Assalomu alaykum! Men sizning qadirdon hamrohingizman."
-    )
+    uz_voice = get_uzbek_voice(voice_key)
+    label = uz_voice.name
+    sample_text = uz_voice.sample_phrase
 
     await callback.answer("🎙 Ovoz namunasi tayyorlanmoqda...")
     try:
-        voice_file = await text_to_speech(sample_text, voice_type=voice_key)
+        voice_file = await text_to_speech(
+            sample_text,
+            voice_type=voice_key,
+            role="qiz_dost" if uz_voice.gender == "female" else "aka",
+        )
         if voice_file and os.path.exists(voice_file):
             try:
                 await callback.message.answer_voice(
                     voice=FSInputFile(voice_file),
-                    caption=f"🎙 <b>{label}</b> namunasini tinglayapsiz.\n<i>«{sample_text}»</i>",
+                    caption=f"🎙 <b>{label}</b> namunasini tinglayapsiz:\n<i>«{sample_text}»</i>",
                     parse_mode="HTML",
                 )
             finally:

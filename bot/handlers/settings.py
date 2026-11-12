@@ -47,18 +47,13 @@ def _get_settings_text(profile: AiProfile, business_connected: bool, language: s
     speed_map = {1: "🐢 Sekin", 2: "🚶 Normal", 3: "⚡ Tez"}
     emoji_map = {1: "😐 Kam", 2: "🙂 O'rta", 3: "😍 Ko'p"}
     lang_map = {"uz": "🇺🇿 O'zbekcha", "ru": "🇷🇺 Русский", "en": "🇬🇧 English"}
-    voice_map = {
-        "female_soft": "👩 Ayol (Yumshoq)",
-        "female_bright": "👩‍🦰 Ayol (Yorqin)",
-        "female_calm": "🧕 Ayol (Vazmin)",
-        "female_warm": "🌸 Ayol (Mehribon)",
-        "male_warm": "👨 Erkak (Iliq)",
-        "male_deep": "🧔‍♂️ Erkak (Past)",
-        "male_calm": "👨‍💼 Erkak (Vazmin)",
-        "male_energetic": "⚡ Erkak (Qat'iyatli)",
-        "child_playful": "🧒 Bola (Quvnoq)",
-    }
-    voice_display = voice_map.get(profile.voice_type, profile.voice_type) if profile.voice_enabled else "O'chirilgan"
+    from voice.uzbek_voices import get_uzbek_voice
+    if profile.voice_enabled:
+        uz_voice = get_uzbek_voice(profile.voice_type)
+        voice_display = uz_voice.name
+    else:
+        voice_display = "O'chirilgan"
+
     emotion_map = {
         "auto": "🎭 Avtomatik (Xabarga mos)",
         "romantic": "❤️ Romantik / Mehrli",
@@ -309,26 +304,29 @@ async def change_voice_start(call: CallbackQuery, user: User) -> None:
     """Ovoz tanlash menyusini ochadi."""
     profile = user.ai_profiles[0] if user.ai_profiles else None
     role = profile.role if profile else "qiz_dost"
+    current_v = getattr(profile, "voice_type", "lola") if profile else "lola"
     await call.message.edit_text(
         "🔊 <b>AI uchun mos ovoz turini tanlang:</b>\n"
         "<i>(Ovozli xabarlar va qo'ng'iroqlar uchun ishlatiladi)</i>",
-        reply_markup=settings_voice_keyboard(role=role, show_all=False),
+        reply_markup=settings_voice_keyboard(role=role, show_all=False, current_voice=current_v),
         parse_mode="HTML",
     )
     await call.answer()
 
 
 @settings_router.callback_query(F.data.startswith("set_vmode:"))
-async def change_voice_mode(call: CallbackQuery) -> None:
+async def change_voice_mode(call: CallbackQuery, user: User) -> None:
     """Sozlamalarda barcha ovozlar yoki filtrlangan ovozlarni almashtirish."""
     parts = call.data.split(":")
     mode = parts[1]
     role = parts[2] if len(parts) > 2 else "qiz_dost"
     show_all = (mode == "all")
+    profile = user.ai_profiles[0] if user.ai_profiles else None
+    current_v = getattr(profile, "voice_type", "lola") if profile else "lola"
     await call.message.edit_text(
         "🔊 <b>AI uchun mos ovoz turini tanlang:</b>\n"
         "<i>(Ovozli xabarlar va qo'ng'iroqlar uchun ishlatiladi)</i>",
-        reply_markup=settings_voice_keyboard(role=role, show_all=show_all),
+        reply_markup=settings_voice_keyboard(role=role, show_all=show_all, current_voice=current_v),
         parse_mode="HTML",
     )
     await call.answer()
@@ -343,17 +341,21 @@ async def change_voice_apply(call: CallbackQuery, user: User) -> None:
         res = await session.execute(stmt)
         profile = res.scalar_one_or_none()
         if profile:
+            from voice.uzbek_voices import get_uzbek_voice, resolve_voice_key
             if voice_key == "off":
                 profile.voice_enabled = False
+                msg_text = "🔇 Ovozli xabarlar o'chirildi."
             else:
-                profile.voice_type = voice_key
+                profile.voice_type = resolve_voice_key(voice_key)
                 profile.voice_enabled = True
+                uz_voice = get_uzbek_voice(profile.voice_type)
+                msg_text = f"✅ Ovoz: {uz_voice.name} tanlandi!"
             await session.commit()
             if user.ai_profiles:
                 user.ai_profiles[0].voice_enabled = profile.voice_enabled
                 user.ai_profiles[0].voice_type = profile.voice_type
             invalidate_user_cache(user.telegram_id)
-            await call.answer("✅ Ovoz sozlamalari yangilandi!")
+            await call.answer(msg_text)
             text = _get_settings_text(profile, bool(user.business_connection_id), user.language)
             await call.message.edit_text(text, reply_markup=settings_keyboard(), parse_mode="HTML")
 

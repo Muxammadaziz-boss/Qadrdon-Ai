@@ -281,22 +281,23 @@ def settings_language_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def settings_voice_keyboard(role: str = "qiz_dost", show_all: bool = False) -> InlineKeyboardMarkup:
-    """Sozlamalar ichida ovozni o'zgartirish klaviaturasi."""
+def settings_voice_keyboard(
+    role: str = "qiz_dost",
+    show_all: bool = False,
+    current_voice: str = "lola",
+) -> InlineKeyboardMarkup:
+    """Sozlamalar ichida milliy o'zbek ovozlarini tanlash va tinglash klaviaturasi."""
+    from voice.uzbek_voices import (
+        UZBEK_VOICES,
+        FEMALE_VOICE_KEYS,
+        MALE_VOICE_KEYS,
+        resolve_voice_key,
+    )
+
     FEMALE_ROLES = {"qiz_dost", "ayol", "ona", "opa", "singil"}
     MALE_ROLES = {"aka", "uka"}
 
-    all_voices = {
-        "female_soft": "👩 Ayol — Yumshoq va mayin",
-        "female_bright": "👩‍🦰 Ayol — Yorqin va sho'x",
-        "female_calm": "🧕 Ayol — Vazmin va samimiy",
-        "female_warm": "🌸 Ayol — Mehribon va iliq",
-        "male_warm": "👨 Erkak — Samimiy va iliq",
-        "male_deep": "🧔‍♂️ Erkak — Salobatli va past",
-        "male_calm": "👨‍💼 Erkak — Vazmin va bosiq",
-        "male_energetic": "⚡ Erkak — Qat'iyatli yigit",
-        "child_playful": "🧒 Bola / Kenjatoy — Quvnoq",
-    }
+    canonical_current = resolve_voice_key(current_voice)
 
     buttons = [
         [
@@ -307,28 +308,32 @@ def settings_voice_keyboard(role: str = "qiz_dost", show_all: bool = False) -> I
         ]
     ]
     if show_all:
-        for key, label in all_voices.items():
+        for key, voice in UZBEK_VOICES.items():
+            check = "✅ " if canonical_current == key else ""
             buttons.append([
-                InlineKeyboardButton(text=label, callback_data=f"set_voice:{key}"),
+                InlineKeyboardButton(text=f"{check}{voice.name}", callback_data=f"set_voice:{key}"),
                 InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_voice:{key}"),
             ])
         buttons.append([InlineKeyboardButton(text="🔙 Mos ovozlarga qaytish", callback_data=f"set_vmode:filter:{role}")])
     else:
         if role in FEMALE_ROLES:
-            keys = ["female_soft", "female_bright", "female_calm", "female_warm"]
+            keys = list(FEMALE_VOICE_KEYS)
             if role == "singil":
                 keys.append("child_playful")
         elif role in MALE_ROLES:
-            keys = ["male_warm", "male_deep", "male_calm", "male_energetic"]
+            keys = list(MALE_VOICE_KEYS)
             if role == "uka":
                 keys.append("child_playful")
         else:
-            keys = list(all_voices.keys())
+            keys = list(UZBEK_VOICES.keys())
 
         for key in keys:
-            label = all_voices.get(key, key)
+            voice = UZBEK_VOICES.get(key)
+            if not voice:
+                continue
+            check = "✅ " if canonical_current == key else ""
             buttons.append([
-                InlineKeyboardButton(text=label, callback_data=f"set_voice:{key}"),
+                InlineKeyboardButton(text=f"{check}{voice.name}", callback_data=f"set_voice:{key}"),
                 InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_voice:{key}"),
             ])
         buttons.append([InlineKeyboardButton(text="🌐 Barcha ovozlar", callback_data=f"set_vmode:all:{role}")])

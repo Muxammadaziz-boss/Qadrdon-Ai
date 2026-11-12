@@ -51,6 +51,7 @@ def test_voice_preview_keyboards():
     """Ovoz sozlamalari klaviaturalarida '▶️ Tinglash' tugmasi mavjudligini tekshiradi."""
     from bot.handlers.setup_voice import voice_type_keyboard, VOICE_SAMPLE_PHRASES
     from bot.keyboards.inline import settings_voice_keyboard
+    from voice.uzbek_voices import UZBEK_VOICES, resolve_voice_key, get_uzbek_voice
 
     kb1 = voice_type_keyboard(role="qiz_dost")
     has_preview = any(
@@ -67,8 +68,12 @@ def test_voice_preview_keyboards():
         for btn in row
     )
     assert has_preview_settings, "settings_voice klaviaturasida preview_voice tugmasi topilmadi"
-    assert "female_soft" in VOICE_SAMPLE_PHRASES
-    assert "male_warm" in VOICE_SAMPLE_PHRASES
+    assert "lola" in VOICE_SAMPLE_PHRASES
+    assert "davron" in VOICE_SAMPLE_PHRASES
+    assert resolve_voice_key("female_warm") == "lola"
+    assert resolve_voice_key("male_warm") == "davron"
+    assert get_uzbek_voice("lola").provider in ("voicelab", "elevenlabs")
+    assert get_uzbek_voice("davron").provider == "elevenlabs"
 
 
 def test_settings_emotion_keyboard():

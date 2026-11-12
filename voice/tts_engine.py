@@ -27,6 +27,7 @@ from voice.voice_profiles import DEFAULT_VOICE_TYPE, VOICE_PROFILES, VoiceProfil
 from voice.speech_humanizer import clean_text_for_speech, humanize_for_speech
 from voice.audio_postprocessor import apply_smartphone_voice_filter
 from voice.emotion_detector import EmotionConfig, detect_speech_emotion, EMOTION_CONFIGS
+from voice.uzbek_voices import get_uzbek_voice, resolve_voice_key, UZBEK_VOICES
 
 
 def _resolve_edge_voice(profile: VoiceProfile, language: str) -> str:
@@ -69,20 +70,23 @@ async def _tts_voicelab(
     if not api_key:
         return None
 
-    is_female = (
-        role in {"qiz_dost", "ayol", "ona", "opa", "singil"}
-        or voice_type.startswith("female")
-        or voice_type in {"child_playful"}
-    )
-
-    voice_id = (
-        voice_id_override
-        or (
+    uz_voice = get_uzbek_voice(voice_type)
+    if voice_id_override:
+        voice_id = voice_id_override
+    elif uz_voice and uz_voice.provider == "voicelab":
+        voice_id = uz_voice.voice_id
+    else:
+        is_female = (
+            role in {"qiz_dost", "ayol", "ona", "opa", "singil"}
+            or voice_type.startswith("female")
+            or voice_type in {"child_playful"}
+            or (uz_voice and uz_voice.gender == "female")
+        )
+        voice_id = (
             getattr(settings, "VOICELAB_VOICE_ID_FEMALE", "voice_EvIb9vE6iY_dWgK7OobYdZcX")
             if is_female
             else getattr(settings, "VOICELAB_VOICE_ID_MALE", "")
         )
-    )
 
     if not voice_id:
         return None
@@ -125,12 +129,16 @@ async def _tts_elevenlabs(text: str, voice_type: str) -> str | None:
     if not api_key:
         return None
 
-    is_female = voice_type.startswith("female") or voice_type in {"child_playful"}
-    voice_id = (
-        getattr(settings, "ELEVENLABS_VOICE_ID_FEMALE", "cgSgspJ2msm6clMCkdW9")
-        if is_female
-        else getattr(settings, "ELEVENLABS_VOICE_ID_MALE", "agoC45V78njTIxYzwmSb")
-    )
+    uz_voice = get_uzbek_voice(voice_type)
+    if uz_voice and uz_voice.provider == "elevenlabs":
+        voice_id = uz_voice.voice_id
+    else:
+        is_female = voice_type.startswith("female") or voice_type in {"child_playful"} or (uz_voice and uz_voice.gender == "female")
+        voice_id = (
+            getattr(settings, "ELEVENLABS_VOICE_ID_FEMALE", "cgSgspJ2msm6clMCkdW9")
+            if is_female
+            else getattr(settings, "ELEVENLABS_VOICE_ID_MALE", "agoC45V78njTIxYzwmSb")
+        )
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
@@ -211,9 +219,17 @@ async def _tts_edge(text: str, voice_type: str, language: str) -> str:
     if edge_tts is None:
         raise RuntimeError("edge-tts kutubxonasi o'rnatilmagan.")
 
-    profile = VOICE_PROFILES.get(voice_type, VOICE_PROFILES.get(DEFAULT_VOICE_TYPE))
-    voice_name = _resolve_edge_voice(profile, language)
-    rate_str, pitch_str = _format_rate_and_pitch(profile)
+    uz_voice = get_uzbek_voice(voice_type)
+    if uz_voice and language == "uz":
+        voice_name = uz_voice.edge_voice
+        pitch_val = int(uz_voice.edge_pitch)
+        pitch_str = f"{'+' if pitch_val >= 0 else ''}{pitch_val}Hz"
+        rate_percent = int((uz_voice.edge_rate - 1.0) * 100)
+        rate_str = f"{'+' if rate_percent >= 0 else ''}{rate_percent}%"
+    else:
+        profile = VOICE_PROFILES.get(voice_type, VOICE_PROFILES.get(DEFAULT_VOICE_TYPE))
+        voice_name = _resolve_edge_voice(profile, language)
+        rate_str, pitch_str = _format_rate_and_pitch(profile)
 
     communicate = edge_tts.Communicate(
         text=text,
@@ -295,25 +311,34 @@ async def text_to_speech(
         speech_text = "Salom"
 
     raw_path: str | None = None
+    uz_voice = get_uzbek_voice(voice_type)
 
-    # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi — emotsional tezlik va tanlangan ovoz bilan)
-    raw_path = await _tts_voicelab(
-        speech_text,
-        voice_type=voice_type,
-        role=role,
-        speed=emotion_cfg.speed,
-        voice_id_override=voice_id_override,
-    )
-
-    # 2. ElevenLabs (agar VoiceLab ishlamasa yoki boshqa rol bo'lsa)
-    if not raw_path:
+    if uz_voice.provider == "elevenlabs":
         raw_path = await _tts_elevenlabs(speech_text, voice_type=voice_type)
+        if not raw_path:
+            raw_path = await _tts_voicelab(
+                speech_text,
+                voice_type=voice_type,
+                role=role,
+                speed=emotion_cfg.speed,
+                voice_id_override=voice_id_override,
+            )
+    else:
+        raw_path = await _tts_voicelab(
+            speech_text,
+            voice_type=voice_type,
+            role=role,
+            speed=emotion_cfg.speed,
+            voice_id_override=voice_id_override,
+        )
+        if not raw_path:
+            raw_path = await _tts_elevenlabs(speech_text, voice_type=voice_type)
 
     # 3. OpenAI TTS
     if not raw_path:
         raw_path = await _tts_openai(speech_text, voice_type=voice_type)
 
-    # 4. Standart bepul Edge-TTS (har doim kafolatlangan)
+    # 4. Standart bepul Edge-TTS (har doim kafolatlangan zaxira)
     if not raw_path:
         raw_path = await _tts_edge(speech_text, voice_type=voice_type, language=language)
 
