@@ -547,12 +547,15 @@ async def handle_business_text_message(message: types.Message, bot: Bot) -> None
 
     if should_send_voice:
         try:
+            chosen_emotion = getattr(ai_profile, "voice_emotion", "auto")
+            emotion_arg = None if chosen_emotion in {"auto", "", None} else chosen_emotion
             voice_path = await text_to_speech(
                 text=response_text,
                 voice_type=getattr(ai_profile, "voice_type", "female_warm"),
                 language="uz",
                 role=getattr(ai_profile, "role", "qiz_dost"),
                 level=getattr(ai_profile, "relationship_level", 1),
+                emotion=emotion_arg,
             )
             # «ovozli xabar yozmoqda...» amali
             record_duration = max(1.5, min(3.5, len(response_text) * 0.04))

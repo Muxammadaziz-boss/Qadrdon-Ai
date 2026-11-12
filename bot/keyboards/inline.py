@@ -191,7 +191,7 @@ def settings_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="🔊 Ovoz sozlamalari", callback_data="settings:voice"
+                    text="🔊 Ovoz va Emotsiya sozlamalari", callback_data="settings:voice"
                 ),
             ],
             [
@@ -298,7 +298,14 @@ def settings_voice_keyboard(role: str = "qiz_dost", show_all: bool = False) -> I
         "child_playful": "🧒 Bola / Kenjatoy — Quvnoq",
     }
 
-    buttons = []
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="🎭 Emotsiya va Ohangni tanlash",
+                callback_data="settings:emotions",
+            )
+        ]
+    ]
     if show_all:
         for key, label in all_voices.items():
             buttons.append([
@@ -328,6 +335,44 @@ def settings_voice_keyboard(role: str = "qiz_dost", show_all: bool = False) -> I
 
     buttons.append([InlineKeyboardButton(text="⏩ Ovozni o'chirish", callback_data="set_voice:off")])
     buttons.append([InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="settings:show")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def settings_emotion_keyboard(current_emotion: str = "auto") -> InlineKeyboardMarkup:
+    """Emotsiya va intonatsiya ohangini tanlash hamda eshitib ko'rish klaviaturasi."""
+    emotions = [
+        ("romantic", "❤️ Romantik / Mehrli"),
+        ("joyful", "😂 Quvnoq / Xushchaqchaq"),
+        ("playful", "😜 Sho'x / Nozli (Erka)"),
+        ("comforting", "🫂 Tasalli / Dalda"),
+        ("surprised", "😲 Hayrat / Hayajon"),
+        ("serious", "🤔 Jiddiy / O'ychan"),
+        ("calm", "🌸 Sokin / Vazmin"),
+    ]
+
+    auto_check = "✅ " if current_emotion in {"auto", "", None} else ""
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=f"{auto_check}🎭 Avtomatik (Mazmunga qarab)",
+                callback_data="set_emotion:auto",
+            )
+        ]
+    ]
+
+    for key, label in emotions:
+        check = "✅ " if current_emotion == key else ""
+        buttons.append([
+            InlineKeyboardButton(text=f"{check}{label}", callback_data=f"set_emotion:{key}"),
+            InlineKeyboardButton(text="▶️ Tinglash", callback_data=f"preview_emotion:{key}"),
+        ])
+
+    buttons.append([
+        InlineKeyboardButton(text="🔙 Ovoz sozlamalariga qaytish", callback_data="settings:voice"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="⚙️ Asosiy sozlamalar", callback_data="settings:show"),
+    ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 

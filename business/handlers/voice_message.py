@@ -140,12 +140,15 @@ async def handle_business_voice_message(message: types.Message, bot: Bot) -> Non
     # 4. Javobni ovozli xabar (TTS) ko'rinishida yuborish
     voice_path = None
     try:
+        chosen_emotion = getattr(ai_profile, "voice_emotion", "auto")
+        emotion_arg = None if chosen_emotion in {"auto", "", None} else chosen_emotion
         voice_path = await text_to_speech(
             text=response_text,
             voice_type=getattr(ai_profile, "voice_type", "female_warm"),
             language="uz",
             role=getattr(ai_profile, "role", "qiz_dost"),
             level=getattr(ai_profile, "relationship_level", 1),
+            emotion=emotion_arg,
         )
 
         # Telegramda «ovozli xabar yozmoqda...» effektini ko'rsatish

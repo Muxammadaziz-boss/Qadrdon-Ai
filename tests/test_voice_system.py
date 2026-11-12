@@ -70,3 +70,34 @@ def test_voice_preview_keyboards():
     assert "female_soft" in VOICE_SAMPLE_PHRASES
     assert "male_warm" in VOICE_SAMPLE_PHRASES
 
+
+def test_settings_emotion_keyboard():
+    """Emotsiya tanlash va tinglash klaviaturasini tekshiradi."""
+    from bot.keyboards.inline import settings_emotion_keyboard
+
+    kb = settings_emotion_keyboard(current_emotion="romantic")
+    preview_emotions = []
+    set_emotions = []
+
+    for row in kb.inline_keyboard:
+        for btn in row:
+            if btn.callback_data and btn.callback_data.startswith("preview_emotion:"):
+                preview_emotions.append(btn.callback_data.split(":")[1])
+            elif btn.callback_data and btn.callback_data.startswith("set_emotion:"):
+                set_emotions.append(btn.callback_data.split(":")[1])
+                if btn.callback_data == "set_emotion:romantic":
+                    assert "✅" in btn.text
+
+    assert "auto" in set_emotions
+    assert "romantic" in set_emotions
+    assert "joyful" in set_emotions
+    assert "playful" in set_emotions
+    assert "comforting" in set_emotions
+    assert "surprised" in set_emotions
+    assert "serious" in set_emotions
+    assert "calm" in set_emotions
+
+    # All 7 distinct emotions have listen/preview buttons
+    for em in ["romantic", "joyful", "playful", "comforting", "surprised", "serious", "calm"]:
+        assert em in preview_emotions
+

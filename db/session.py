@@ -42,6 +42,7 @@ async def init_db() -> None:
             ("character_id", "VARCHAR(50)"),
             ("unlocked_secrets", "TEXT DEFAULT '[]'"),
             ("proactive_enabled", "BOOLEAN DEFAULT TRUE"),
+            ("voice_emotion", "VARCHAR(30) DEFAULT 'auto'"),
         ]:
             try:
                 if "sqlite" in settings.DATABASE_URL:

@@ -6,11 +6,13 @@ Barcha inline tugmalar to'liq ishlaydi.
 
 from __future__ import annotations
 
+import os
 import re
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, FSInputFile, Message
+from loguru import logger
 from sqlalchemy import select, update
 
 from ai.prompts.roles import ROLE_NAMES_UZ
@@ -19,6 +21,7 @@ from ai.characters import get_character_model, list_character_models
 from bot.keyboards.inline import (
     emoji_level_keyboard,
     relationship_settings_keyboard,
+    settings_emotion_keyboard,
     settings_keyboard,
     settings_language_keyboard,
     settings_models_keyboard,
@@ -56,6 +59,18 @@ def _get_settings_text(profile: AiProfile, business_connected: bool, language: s
         "child_playful": "🧒 Bola (Quvnoq)",
     }
     voice_display = voice_map.get(profile.voice_type, profile.voice_type) if profile.voice_enabled else "O'chirilgan"
+    emotion_map = {
+        "auto": "🎭 Avtomatik (Xabarga mos)",
+        "romantic": "❤️ Romantik / Mehrli",
+        "joyful": "😂 Quvnoq / Sho'x",
+        "playful": "😜 Sho'x / Nozli (Erka)",
+        "comforting": "🫂 Tasalli / Dalda",
+        "surprised": "😲 Hayrat / Hayajon",
+        "serious": "🤔 Jiddiy / O'ychan",
+        "calm": "🌸 Sokin / Vazmin",
+    }
+    current_em = getattr(profile, "voice_emotion", "auto") or "auto"
+    emotion_display = emotion_map.get(current_em, current_em)
     b_status = "🟢 Ulangan" if business_connected else "🔴 Ulanmagan"
 
     level = getattr(profile, "relationship_level", 1)
@@ -76,6 +91,7 @@ def _get_settings_text(profile: AiProfile, business_connected: bool, language: s
         f"💬 <b>Xarakter:</b> <i>{profile.personality_prompt[:70]}...</i>\n"
         f"🌐 <b>Til:</b> {lang_map.get(language, language)}\n"
         f"🔊 <b>Ovoz:</b> {voice_display}\n"
+        f"🎭 <b>Ohang / Emotsiya:</b> {emotion_display}\n"
         f"😊 <b>Emoji darajasi:</b> {emoji_map.get(profile.emoji_level, str(profile.emoji_level))}\n"
         f"⌨️ <b>Yozish tezligi:</b> {speed_map.get(profile.typing_speed, str(profile.typing_speed))}\n"
         f"💡 <b>AI holati:</b> {status}\n"
@@ -340,6 +356,109 @@ async def change_voice_apply(call: CallbackQuery, user: User) -> None:
             await call.answer("✅ Ovoz sozlamalari yangilandi!")
             text = _get_settings_text(profile, bool(user.business_connection_id), user.language)
             await call.message.edit_text(text, reply_markup=settings_keyboard(), parse_mode="HTML")
+
+
+# ── Emotsiya va Ohang sozlamalari ──────────────────────────────────────────
+EMOTION_SAMPLE_PHRASES: dict[str, str] = {
+    "romantic": "Jonim... Sizni bugun judayam sog'indim... Kuningiz qanday o'tdi? ❤️",
+    "joyful": "Haha... Voy, bugun judayam zo'r kun bo'ldi-ku! Kayfiyatim ajoyib! 😂🎉",
+    "playful": "Voy qarang-a... Arazlayman hozir sizdan, tentakvoy! Nimaga kech yozdingiz? 😜😏",
+    "comforting": "Eh... Xavotir olmang-a... Hammasi yaxshi bo'ladi, men doim siz bilan birgaman 🥺",
+    "surprised": "Voy! Nahotki rostdan ham shunaqa bo'ldi?! Qoyil, ishonish qiyin! 😱",
+    "serious": "O'ylab qoldim... Bu juda muhim masala, keling yaxshilab maslahatlashaylik 🤔",
+    "calm": "Assalomu alaykum. Barchasi joyida, xotirjam suhbatlashamiz 🌸",
+}
+
+EMOTION_LABELS: dict[str, str] = {
+    "auto": "🎭 Avtomatik (Xabarga mos)",
+    "romantic": "❤️ Romantik / Mehrli",
+    "joyful": "😂 Quvnoq / Xushchaqchaq",
+    "playful": "😜 Sho'x / Nozli (Erka)",
+    "comforting": "🫂 Tasalli / Dalda",
+    "surprised": "😲 Hayrat / Hayajon",
+    "serious": "🤔 Jiddiy / O'ychan",
+    "calm": "🌸 Sokin / Vazmin",
+}
+
+
+@settings_router.callback_query(F.data == "settings:emotions")
+async def change_emotion_start(call: CallbackQuery, user: User) -> None:
+    """Emotsiya va intonatsiya ohangini tanlash menyusini ochadi."""
+    profile = user.ai_profiles[0] if user.ai_profiles else None
+    current_em = getattr(profile, "voice_emotion", "auto") or "auto"
+    text = (
+        "🎭 <b>Ovozning emotsional ohangini tanlang:</b>\n\n"
+        "Har bir ohangni <b>«▶️ Tinglash»</b> tugmasi orqali bevosita eshitib ko'rishingiz mumkin.\n\n"
+        "💡 <i>«Avtomatik» tanlansa, AI xabar mazmuni va emojilarga qarab o'zi eng mos ohangni tanlaydi.</i>\n\n"
+        "👇 Kerakli ohangni tanlang:"
+    )
+    await call.message.edit_text(
+        text,
+        reply_markup=settings_emotion_keyboard(current_emotion=current_em),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@settings_router.callback_query(F.data.startswith("set_emotion:"))
+async def change_emotion_apply(call: CallbackQuery, user: User) -> None:
+    """Emotsiya ohangini saqlaydi."""
+    emotion_key = call.data.split(":")[1]
+    async with async_session() as session:
+        stmt = select(AiProfile).where(AiProfile.user_id == user.id)
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+        if profile:
+            profile.voice_emotion = emotion_key
+            await session.commit()
+            if user.ai_profiles:
+                user.ai_profiles[0].voice_emotion = emotion_key
+            invalidate_user_cache(user.telegram_id)
+            label = EMOTION_LABELS.get(emotion_key, emotion_key)
+            await call.answer(f"✅ Ohang: {label} tanlandi!")
+            await call.message.edit_reply_markup(
+                reply_markup=settings_emotion_keyboard(current_emotion=emotion_key),
+            )
+
+
+@settings_router.callback_query(F.data.startswith("preview_emotion:"))
+async def on_preview_emotion(call: CallbackQuery, user: User) -> None:
+    """Emotsiya namunasini ovozli xabar qilib jo'natadi."""
+    emotion_key = call.data.split(":")[1]
+    profile = user.ai_profiles[0] if user.ai_profiles else None
+    role = profile.role if profile else "qiz_dost"
+    voice_type = profile.voice_type if profile else "female_warm"
+
+    sample_text = EMOTION_SAMPLE_PHRASES.get(
+        emotion_key,
+        "Assalomu alaykum! Men sizning qadirdon hamrohingizman."
+    )
+    label = EMOTION_LABELS.get(emotion_key, emotion_key)
+
+    await call.answer("🎙 Emotsiya namunasi tayyorlanmoqda...")
+    try:
+        from voice.tts_engine import text_to_speech
+        voice_file = await text_to_speech(
+            sample_text,
+            role=role,
+            voice_type=voice_type,
+            emotion=emotion_key,
+        )
+        if voice_file and os.path.exists(voice_file):
+            try:
+                await call.message.answer_voice(
+                    voice=FSInputFile(voice_file),
+                    caption=f"🎙 <b>{label}</b> namunasini tinglayapsiz:\n<i>«{sample_text}»</i>",
+                    parse_mode="HTML",
+                )
+            finally:
+                if os.path.exists(voice_file):
+                    os.remove(voice_file)
+        else:
+            await call.message.answer("⚠️ Ovoz namunasini yaratishda xatolik yuz berdi.")
+    except Exception as exc:
+        logger.error(f"Emotsiya namunasini yuborishda xatolik: {exc}")
+        await call.message.answer("⚠️ Ovoz namunasini tayyorlashda xatolik yuz berdi.")
 
 
 # ── Emoji darajasi ──────────────────────────────────────────────────────────

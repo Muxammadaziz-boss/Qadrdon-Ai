@@ -49,6 +49,9 @@ class AiProfile(Base, TimestampMixin):
         String(30), default="male_warm"
     )  # Ovoz profili
     voice_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    voice_emotion: Mapped[str] = mapped_column(
+        String(30), default="auto"
+    )  # auto, romantic, joyful, playful, comforting, surprised, serious, calm
 
     # --- Maxsus so'zlar ---
     # Masalan: {"greeting": "Salom ukaginam!", "farewell": "Xayr, o'zingni ehtiyot qil!"}
