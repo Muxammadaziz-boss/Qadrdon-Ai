@@ -24,10 +24,10 @@ class EmotionConfig:
 
 
 EMOTION_CONFIGS: dict[str, EmotionConfig] = {
-    # 1. Romantik / Mehrli / Sog'inch
+    # 1. Romantik / Mehrli / Sog'inch (o'ta mayin, erkalovchi va xotirjam)
     "romantic": EmotionConfig(
         name="romantic",
-        speed=0.92,
+        speed=0.80,
         pitch_factor=0.97,
         lowpass_freq=7200,
         eq_freq=350,
@@ -35,21 +35,21 @@ EMOTION_CONFIGS: dict[str, EmotionConfig] = {
         starter_interjections=("Hmm... ", "Jonim... ", "Bilasanmi... ", "Sizga bitta gap aytaymi... "),
         description="Mayin, sokin, erkalovchi va yaqin ohang",
     ),
-    # 2. Quvnoq / Sho'x / Hazilkash
+    # 2. Quvnoq / Sho'x / Hazilkash (xushchaqchaq, lekin shoshilmaydi)
     "joyful": EmotionConfig(
         name="joyful",
-        speed=1.12,
-        pitch_factor=1.03,
-        lowpass_freq=8000,
+        speed=0.89,
+        pitch_factor=1.02,
+        lowpass_freq=7900,
         eq_freq=3000,
-        eq_gain=3.0,
+        eq_gain=2.8,
         starter_interjections=("Haha... ", "Voy... ", "Zo'r-ku... ", "Ajoyib... "),
-        description="Quvnoq, o'ynoqi, xushchaqchaq va g'ayratli ohang",
+        description="Quvnoq, o'ynoqi, xushchaqchaq ohang",
     ),
-    # 3. Tasalli / Hamdardlik / G'amxo'rlik
+    # 3. Tasalli / Hamdardlik / G'amxo'rlik (bosiq, sekin, muloyim)
     "comforting": EmotionConfig(
         name="comforting",
-        speed=0.93,
+        speed=0.82,
         pitch_factor=0.98,
         lowpass_freq=7300,
         eq_freq=400,
@@ -57,25 +57,25 @@ EMOTION_CONFIGS: dict[str, EmotionConfig] = {
         starter_interjections=("Eh... ", "Xafa bo'lma-ya... ", "Xavotir olmang... ", "Hmm... "),
         description="Mehrli, dalda beruvchi va iliq ohang",
     ),
-    # 4. Hayrat / Hayajon / Kutilmagan hodisa
+    # 4. Hayrat / Hayajon / Kutilmagan hodisa (qiziqish bilan, lekin tushunarli)
     "surprised": EmotionConfig(
         name="surprised",
-        speed=1.08,
-        pitch_factor=1.04,
-        lowpass_freq=7900,
-        eq_freq=2800,
-        eq_gain=2.5,
-        starter_interjections=("Voy... ", "Iya... ", "Nahotki... ", "Rostdanmi... "),
-        description="Hayratlangan, qiziqqan va kutilmagan ohang",
-    ),
-    # 5. Sokin / Vazmin / Kundalik suhbat
-    "calm": EmotionConfig(
-        name="calm",
-        speed=1.00,
-        pitch_factor=1.00,
+        speed=0.87,
+        pitch_factor=1.02,
         lowpass_freq=7800,
         eq_freq=2800,
-        eq_gain=2.2,
+        eq_gain=2.4,
+        starter_interjections=("Voy... ", "Iya... ", "Nahotki... ", "Rostdanmi... "),
+        description="Hayratlangan, qiziqqan ohang",
+    ),
+    # 5. Sokin / Vazmin / Kundalik suhbat (tabiiy, me'yordagi xotirjam tezlik)
+    "calm": EmotionConfig(
+        name="calm",
+        speed=0.84,
+        pitch_factor=1.00,
+        lowpass_freq=7700,
+        eq_freq=2800,
+        eq_gain=2.0,
         starter_interjections=("Hmm... ", "Ha-ya... ", "Xa... "),
         description="Tabiiy, muvozanatli va xotirjam so'zlashuv",
     ),

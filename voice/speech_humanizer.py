@@ -74,6 +74,9 @@ def phonetic_tune_for_uzbek(text: str) -> str:
 
 def insert_breath_and_pauses(text: str, emotion_name: str = "calm") -> str:
     """Gaplar orasiga va bog'lovchilar oldiga tabiiy nafas olish pauzalarini (...) joylashtiradi."""
+    # Gaplar orasidagi nuqtadan keyin mayin nafas to'xtashi
+    text = re.sub(r"\.\s+", "... ", text)
+
     # Bog'lovchilar oldidan nafas olish pauzasi (agar oldida tinish belgisi bo'lmasa)
     conjunctions = ["lekin", "chunki", "ammo", "biroq", "faqat"]
     for conj in conjunctions:

@@ -71,14 +71,11 @@ async def apply_smartphone_voice_filter(
     eq_gain = emotion_config.eq_gain if emotion_config else 2.2
 
     # Smartfon mikrofoni va xona filtr zanjiri:
-    # 1. asetrate/aresample: his-tuyg'uga qarab nozik pitch-modulyatsiya (shirinlik yoki hayajon)
-    # 2. highpass=f=80: 80Hz dan past sun'iy to'lqinlarni qirqish
-    # 3. lowpass=f={lowpass_freq}: robotik/metallik shovqinni yo'qotish
-    # 4. equalizer: ko'krak iliqligi (romantik) yoki vokal yorqinligi (quvnoq)
-    # 5. acompressor: tovush balandligini bir maromda ushlab turish
+    # 1. highpass=f=80: 80Hz dan past sun'iy to'lqinlarni qirqish
+    # 2. lowpass=f={lowpass_freq}: robotik/metallik shovqinni yo'qotish va mayinlashtirish
+    # 3. equalizer: ko'krak iliqligi (romantik) yoki vokal yorqinligi (quvnoq)
+    # 4. acompressor: tovush balandligini bir maromda ushlab turish
     audio_filter = (
-        f"asetrate=48000*{pitch_factor:.3f},"
-        "aresample=48000,"
         "highpass=f=80,"
         f"lowpass=f={lowpass_freq},"
         f"equalizer=f={eq_freq}:width_type=o:width=1.5:g={eq_gain:.1f},"
