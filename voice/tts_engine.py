@@ -26,6 +26,7 @@ from config.settings import settings
 from voice.voice_profiles import DEFAULT_VOICE_TYPE, VOICE_PROFILES, VoiceProfile
 from voice.speech_humanizer import clean_text_for_speech, humanize_for_speech
 from voice.audio_postprocessor import apply_smartphone_voice_filter
+from voice.emotion_detector import EmotionConfig, detect_speech_emotion, EMOTION_CONFIGS
 
 
 def _resolve_edge_voice(profile: VoiceProfile, language: str) -> str:
@@ -56,7 +57,12 @@ def _create_temp_audio(suffix: str = ".mp3") -> str:
 _create_temp_mp3 = _create_temp_audio  # Orqaga moslik uchun
 
 
-async def _tts_voicelab(text: str, voice_type: str = "", role: str = "") -> str | None:
+async def _tts_voicelab(
+    text: str,
+    voice_type: str = "",
+    role: str = "",
+    speed: float = 1.0,
+) -> str | None:
     """VoiceLab.uz orqali o'zbek milliy tabiiy ovozini yaratish."""
     api_key = getattr(settings, "VOICELAB_API_KEY", "")
     if not api_key:
@@ -87,6 +93,7 @@ async def _tts_voicelab(text: str, voice_type: str = "", role: str = "") -> str 
         "text": text,
         "language": "uz",
         "voice_id": voice_id,
+        "speed": speed,
     }
 
     try:
@@ -231,23 +238,44 @@ async def text_to_speech(
     role: str = "qiz_dost",
     level: int = 1,
     apply_effects: bool = True,
+    emotion: str | EmotionConfig | None = None,
 ) -> str:
-    """Matnni insoniy ovozga aylantiradi.
+    """Matnni insoniy va his-tuyg'uli ovozga aylantiradi.
     
     Bosqichlar:
-    1. Speech Humanizer: matnni jonli o'zbek so'zlashuv fonetikasiga, nafas pauzalariga
-       va hissiy tovushlarga (interjections) o'tkazadi.
-    2. Multi-provider TTS: ElevenLabs -> OpenAI -> Microsoft Edge-TTS.
-    3. Audio Post-Processor: smartfon mikrofoni filtrlarini berib, Telegram native Opus (.ogg) ga o'tkazadi.
+    1. Emotion Detector: matn mazmuni va emojilardan hissiy ohangni aniqlaydi (romantik, quvnoq, tasalli, hayrat, sokin).
+    2. Speech Humanizer: matnni jonli so'zlashuv fonetikasiga, hissiy pauzalarga va undovlarga o'tkazadi.
+    3. Multi-provider TTS (VoiceLab.uz -> ElevenLabs -> OpenAI -> Microsoft Edge-TTS) emotsional tezlik bilan.
+    4. Audio Post-Processor: emotsional pitch-shift, smartfon mikrofoni filtri va Telegram native Opus (.ogg).
     """
-    speech_text = humanize_for_speech(text, role=role, level=level)
+    if isinstance(emotion, EmotionConfig):
+        emotion_cfg = emotion
+    elif isinstance(emotion, str) and emotion in EMOTION_CONFIGS:
+        emotion_cfg = EMOTION_CONFIGS[emotion]
+    else:
+        emotion_cfg = detect_speech_emotion(text)
+
+    logger.info(
+        "Ovoz emotsiyasi tanlandi: {} ({}) | tezlik={:.2f}, pitch={:.2f}",
+        emotion_cfg.name,
+        emotion_cfg.description,
+        emotion_cfg.speed,
+        emotion_cfg.pitch_factor,
+    )
+
+    speech_text = humanize_for_speech(text, role=role, level=level, emotion_config=emotion_cfg)
     if not speech_text:
         speech_text = "Salom"
 
     raw_path: str | None = None
 
-    # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi — qiz_dost uchun Nozima)
-    raw_path = await _tts_voicelab(speech_text, voice_type=voice_type, role=role)
+    # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi — emotsional tezlik bilan)
+    raw_path = await _tts_voicelab(
+        speech_text,
+        voice_type=voice_type,
+        role=role,
+        speed=emotion_cfg.speed,
+    )
 
     # 2. ElevenLabs (agar VoiceLab ishlamasa yoki boshqa rol bo'lsa)
     if not raw_path:
@@ -261,9 +289,13 @@ async def text_to_speech(
     if not raw_path:
         raw_path = await _tts_edge(speech_text, voice_type=voice_type, language=language)
 
-    # 4. Smartfon mikrofoni & Telegram Opus filtri
+    # 5. Emotsional Smartfon mikrofoni & Telegram Opus filtri
     if apply_effects and raw_path:
-        final_path = await apply_smartphone_voice_filter(raw_path, output_format="ogg")
+        final_path = await apply_smartphone_voice_filter(
+            raw_path,
+            output_format="ogg",
+            emotion_config=emotion_cfg,
+        )
         return final_path
 
     return raw_path

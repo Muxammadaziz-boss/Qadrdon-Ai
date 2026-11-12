@@ -10,6 +10,8 @@ from __future__ import annotations
 import random
 import re
 
+from voice.emotion_detector import EmotionConfig, detect_speech_emotion
+
 # Jonli o'zbek so'zlashuv fonetikasi
 PHONETIC_REPLACEMENTS = [
     # Inkor va zamon shakllari
@@ -70,7 +72,7 @@ def phonetic_tune_for_uzbek(text: str) -> str:
     return text
 
 
-def insert_breath_and_pauses(text: str) -> str:
+def insert_breath_and_pauses(text: str, emotion_name: str = "calm") -> str:
     """Gaplar orasiga va bog'lovchilar oldiga tabiiy nafas olish pauzalarini (...) joylashtiradi."""
     # Bog'lovchilar oldidan nafas olish pauzasi (agar oldida tinish belgisi bo'lmasa)
     conjunctions = ["lekin", "chunki", "ammo", "biroq", "faqat"]
@@ -81,6 +83,10 @@ def insert_breath_and_pauses(text: str) -> str:
     affection_words = ["jonim", "sevgilim", "qadrdonim", "do'stim", "singlim", "ukaginam"]
     for aff in affection_words:
         text = re.sub(rf"\b{aff}\b(?=[.,!]|$)", f"{aff}...", text, flags=re.IGNORECASE)
+
+    # Romantik yoki tasalli beruvchi rejimda gap oxiriga mayin nafas to'xtashi
+    if emotion_name in {"romantic", "comforting"} and text and text[-1] in ".":
+        text = text[:-1] + "..."
 
     # Tinish belgilaridagi ortiqcha takrorlanishlarni tozalash (masalan: ...? -> ?)
     text = re.sub(r"\.{2,}([?!])", r"\1", text)
@@ -94,9 +100,10 @@ def inject_speech_interjections(
     text: str,
     role: str = "qiz_dost",
     level: int = 1,
-    probability: float = 0.35,
+    probability: float = 0.40,
+    emotion_config: EmotionConfig | None = None,
 ) -> str:
-    """Gap boshiga hissiy tovushlar (Hmm..., Voy..., Xa...) qo'shadi."""
+    """Gap boshiga his-tuyg'uga mos tovushlar (Haha..., Voy..., Jonim..., Hmm...) qo'shadi."""
     if not text:
         return text
 
@@ -110,6 +117,11 @@ def inject_speech_interjections(
 
     if random.random() > probability:
         return text
+
+    # Agar aniqlangan emotsiya konfiguratsiyasi bo'lsa, undan foydalanamiz
+    if emotion_config and emotion_config.starter_interjections:
+        filler = random.choice(emotion_config.starter_interjections)
+        return filler + text
 
     if role in FEMALE_ROLES:
         if "?" in text:
@@ -131,10 +143,14 @@ def humanize_for_speech(
     text: str,
     role: str = "qiz_dost",
     level: int = 1,
+    emotion_config: EmotionConfig | None = None,
 ) -> str:
-    """Matnni TTS ovozga aylantirishdan oldin insondek jonli va tabiiy holatga keltiradi."""
+    """Matnni TTS ovozga aylantirishdan oldin emotsiyaga mos jonli va tabiiy holatga keltiradi."""
     if not text:
         return "Salom"
+
+    if emotion_config is None:
+        emotion_config = detect_speech_emotion(text)
 
     # 1. Tozalash (markdown, emoji, URL)
     cleaned = clean_text_for_speech(text)
@@ -145,9 +161,14 @@ def humanize_for_speech(
     phonetic = phonetic_tune_for_uzbek(cleaned)
 
     # 3. Nafas olish va intonatsiya pauzalarini kiritish
-    with_pauses = insert_breath_and_pauses(phonetic)
+    with_pauses = insert_breath_and_pauses(phonetic, emotion_name=emotion_config.name)
 
     # 4. Hissiy undov tovushlarini joylashtirish
-    humanized = inject_speech_interjections(with_pauses, role=role, level=level)
+    humanized = inject_speech_interjections(
+        with_pauses,
+        role=role,
+        level=level,
+        emotion_config=emotion_config,
+    )
 
     return humanized

@@ -16,7 +16,11 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from typing import TYPE_CHECKING
 from loguru import logger
+
+if TYPE_CHECKING:
+    from voice.emotion_detector import EmotionConfig
 
 
 def get_ffmpeg_exe() -> str | None:
@@ -39,10 +43,11 @@ def get_ffmpeg_exe() -> str | None:
 async def apply_smartphone_voice_filter(
     input_path: str,
     output_format: str = "ogg",
+    emotion_config: EmotionConfig | None = None,
 ) -> str:
     """
-    Ovoz fayliga haqiqiy smartfon mikrofoni filtrlarini beradi va
-    Telegram uchun rasmiy Opus (.ogg) formatiga o'tkazadi.
+    Ovoz fayliga haqiqiy smartfon mikrofoni va emotsional intonatsiya filtrlarini beradi,
+    so'ng Telegram uchun rasmiy Opus (.ogg) formatiga o'tkazadi.
     
     Agar ffmpeg bo'lmasa yoki xatolik yuz bersa, asl fayl xavfsiz qaytariladi.
     """
@@ -59,15 +64,24 @@ async def apply_smartphone_voice_filter(
     fd, out_path = tempfile.mkstemp(suffix=suffix, prefix="qadirdon_voice_note_")
     os.close(fd)
 
+    # Emotsiyaga mos ohang, pitch va ekvalayzer parametrlari:
+    pitch_factor = emotion_config.pitch_factor if emotion_config else 1.00
+    lowpass_freq = emotion_config.lowpass_freq if emotion_config else 7800
+    eq_freq = emotion_config.eq_freq if emotion_config else 2800
+    eq_gain = emotion_config.eq_gain if emotion_config else 2.2
+
     # Smartfon mikrofoni va xona filtr zanjiri:
-    # 1. highpass=f=80: 80Hz dan past sun'iy to'lqinlarni qirqish
-    # 2. lowpass=f=7800: 7.8kHz dan yuqori metallik/robotik shovqinni yo'qotish
-    # 3. equalizer=f=2800:width_type=o:width=1.5:g=2.2: ovozga iliq yaqinlik berish
-    # 4. acompressor: tovush balandligini bir maromda ushlab turish
+    # 1. asetrate/aresample: his-tuyg'uga qarab nozik pitch-modulyatsiya (shirinlik yoki hayajon)
+    # 2. highpass=f=80: 80Hz dan past sun'iy to'lqinlarni qirqish
+    # 3. lowpass=f={lowpass_freq}: robotik/metallik shovqinni yo'qotish
+    # 4. equalizer: ko'krak iliqligi (romantik) yoki vokal yorqinligi (quvnoq)
+    # 5. acompressor: tovush balandligini bir maromda ushlab turish
     audio_filter = (
+        f"asetrate=48000*{pitch_factor:.3f},"
+        "aresample=48000,"
         "highpass=f=80,"
-        "lowpass=f=7800,"
-        "equalizer=f=2800:width_type=o:width=1.5:g=2.2,"
+        f"lowpass=f={lowpass_freq},"
+        f"equalizer=f={eq_freq}:width_type=o:width=1.5:g={eq_gain:.1f},"
         "acompressor=threshold=-18dB:ratio=2.2:attack=10:release=100:makeup=2dB"
     )
 
