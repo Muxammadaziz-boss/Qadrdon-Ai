@@ -37,6 +37,7 @@ def test_get_current_slot():
 def test_generate_proactive_text():
     """Har xil rollar uchun proactive xabarlar muvaffaqiyatli generatsiya qilinishini tekshiradi."""
     import asyncio
+    from unittest.mock import patch
 
     profile = AiProfile(
         role="qiz_dost",
@@ -45,17 +46,18 @@ def test_generate_proactive_text():
         game_mode="story",
         proactive_enabled=True,
     )
-    text = asyncio.run(generate_proactive_text(profile, slot="morning"))
-    assert isinstance(text, str)
-    assert len(text) > 5
+    with patch("business.tasks.proactive_scheduler.ai_engine.client", None):
+        text = asyncio.run(generate_proactive_text(profile, slot="morning"))
+        assert isinstance(text, str)
+        assert len(text) > 5
 
-    # Aka roli
-    profile_aka = AiProfile(
-        role="aka",
-        ai_name="Sardor",
-        relationship_level=2,
-        proactive_enabled=True,
-    )
-    text_aka = asyncio.run(generate_proactive_text(profile_aka, slot="evening"))
-    assert isinstance(text_aka, str)
-    assert len(text_aka) > 5
+        # Aka roli
+        profile_aka = AiProfile(
+            role="aka",
+            ai_name="Sardor",
+            relationship_level=2,
+            proactive_enabled=True,
+        )
+        text_aka = asyncio.run(generate_proactive_text(profile_aka, slot="evening"))
+        assert isinstance(text_aka, str)
+        assert len(text_aka) > 5

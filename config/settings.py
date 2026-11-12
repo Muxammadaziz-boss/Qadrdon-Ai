@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
+    # --- VoiceLab.uz (O'zbekiston milliy tabiiy TTS) ---
+    VOICELAB_API_KEY: str = ""
+    VOICELAB_VOICE_ID_FEMALE: str = "voice_3602ec76-5393-43b6-9e0d-784328cb77ba"  # Nozima — Soft (qiz o'rtoq)
+    VOICELAB_VOICE_ID_MALE: str = ""
+
     # --- Hyper-Realistic Emotional TTS (ElevenLabs / OpenAI) ---
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID_FEMALE: str = "cgSgspJ2msm6clMCkdW9"  # Jessica (iliq, quvnoq, samimiy ayol ovozi)

@@ -96,10 +96,11 @@ class AiEngine:
     async def _call_gemini(
         self,
         system_instruction: str,
-        conversation_history: list[dict],
-        user_message: str,
+        conversation_history: list[dict] | None = None,
+        user_message: str = "",
         image_bytes: bytes | None = None,
         image_mime_type: str = "image/jpeg",
+        contents: list[types.Content] | None = None,
     ) -> str:
         if not self.client:
             # Test / Offline rejim
@@ -109,12 +110,13 @@ class AiEngine:
             return "Salom! Men hozir offline test rejimdaman, API kalit sozlanmagan."
 
         try:
-            contents = self._prepare_gemini_contents(
-                conversation_history=conversation_history,
-                user_message=user_message,
-                image_bytes=image_bytes,
-                image_mime_type=image_mime_type,
-            )
+            if contents is None:
+                contents = self._prepare_gemini_contents(
+                    conversation_history=conversation_history or [],
+                    user_message=user_message,
+                    image_bytes=image_bytes,
+                    image_mime_type=image_mime_type,
+                )
 
             # Gemini API orqali chaqirish (avtomatik fallback bilan)
             candidate_models = [

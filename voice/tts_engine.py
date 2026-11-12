@@ -46,11 +46,66 @@ def _format_rate_and_pitch(profile: VoiceProfile) -> tuple[str, str]:
     return rate_str, pitch_str
 
 
-def _create_temp_mp3() -> str:
-    """Vaqtinchalik MP3 fayl yaratadi."""
-    fd, path = tempfile.mkstemp(suffix=".mp3", prefix="qadirdon_voice_")
+def _create_temp_audio(suffix: str = ".mp3") -> str:
+    """Vaqtinchalik audio fayl yaratadi."""
+    fd, path = tempfile.mkstemp(suffix=suffix, prefix="qadirdon_voice_")
     os.close(fd)
     return path
+
+
+_create_temp_mp3 = _create_temp_audio  # Orqaga moslik uchun
+
+
+async def _tts_voicelab(text: str, voice_type: str = "", role: str = "") -> str | None:
+    """VoiceLab.uz orqali o'zbek milliy tabiiy ovozini yaratish."""
+    api_key = getattr(settings, "VOICELAB_API_KEY", "")
+    if not api_key:
+        return None
+
+    is_female = (
+        role in {"qiz_dost", "ayol", "ona", "opa", "singil"}
+        or voice_type.startswith("female")
+        or voice_type in {"child_playful"}
+    )
+
+    voice_id = (
+        getattr(settings, "VOICELAB_VOICE_ID_FEMALE", "voice_3602ec76-5393-43b6-9e0d-784328cb77ba")
+        if is_female
+        else getattr(settings, "VOICELAB_VOICE_ID_MALE", "")
+    )
+
+    if not voice_id:
+        return None
+
+    url = "https://api.voicelab.uz/v1/tts"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "audio/wav",
+    }
+    payload = {
+        "text": text,
+        "language": "uz",
+        "voice_id": voice_id,
+    }
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=payload, headers=headers) as resp:
+                if resp.status == 200:
+                    audio_data = await resp.read()
+                    temp_path = _create_temp_audio(suffix=".wav")
+                    Path(temp_path).write_bytes(audio_data)
+                    logger.info("VoiceLab.uz TTS muvaffaqiyatli: {} ({} bayt, voice={})", temp_path, len(audio_data), voice_id)
+                    return temp_path
+                else:
+                    err_body = await resp.text()
+                    logger.warning("VoiceLab.uz xatosi: status={}, body={}", resp.status, err_body[:120])
+    except Exception as exc:
+        logger.warning("VoiceLab.uz TTS ulanishida xatolik: {}", exc)
+
+    return None
 
 
 async def _tts_elevenlabs(text: str, voice_type: str) -> str | None:
@@ -191,14 +246,18 @@ async def text_to_speech(
 
     raw_path: str | None = None
 
-    # 1. ElevenLabs (O'ta hissiyotli inson ovozi)
-    raw_path = await _tts_elevenlabs(speech_text, voice_type=voice_type)
+    # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi — qiz_dost uchun Nozima)
+    raw_path = await _tts_voicelab(speech_text, voice_type=voice_type, role=role)
 
-    # 2. OpenAI TTS
+    # 2. ElevenLabs (agar VoiceLab ishlamasa yoki boshqa rol bo'lsa)
+    if not raw_path:
+        raw_path = await _tts_elevenlabs(speech_text, voice_type=voice_type)
+
+    # 3. OpenAI TTS
     if not raw_path:
         raw_path = await _tts_openai(speech_text, voice_type=voice_type)
 
-    # 3. Standart bepul Edge-TTS
+    # 4. Standart bepul Edge-TTS (har doim kafolatlangan)
     if not raw_path:
         raw_path = await _tts_edge(speech_text, voice_type=voice_type, language=language)
 
