@@ -130,17 +130,27 @@ async def _tts_elevenlabs(text: str, voice_type: str) -> str | None:
         return None
 
     uz_voice = get_uzbek_voice(voice_type)
-    if uz_voice and uz_voice.provider == "elevenlabs":
-        voice_id = uz_voice.voice_id
-    else:
-        is_female = voice_type.startswith("female") or voice_type in {"child_playful"} or (uz_voice and uz_voice.gender == "female")
-        voice_id = (
+    target_voice_ids: list[str] = []
+
+    # 1. Agar asosiy provider elevenlabs bo'lsa (masalan davron: agoC45V78njTIxYzwmSb)
+    if uz_voice and uz_voice.provider == "elevenlabs" and uz_voice.voice_id:
+        target_voice_ids.append(uz_voice.voice_id)
+
+    # 2. Har bir milliy ovozning o'ziga xos takrorlanmas ElevenLabs ovozi
+    if uz_voice and getattr(uz_voice, "eleven_voice_id", None):
+        if uz_voice.eleven_voice_id not in target_voice_ids:
+            target_voice_ids.append(uz_voice.eleven_voice_id)
+
+    # 3. Zaxira umumiy ovozlar
+    if not target_voice_ids:
+        is_female = voice_type.startswith("female") or voice_type in {"child_playful"} or (uz_voice and uz_voice.gender in {"female", "child"})
+        default_id = (
             getattr(settings, "ELEVENLABS_VOICE_ID_FEMALE", "cgSgspJ2msm6clMCkdW9")
             if is_female
-            else getattr(settings, "ELEVENLABS_VOICE_ID_MALE", "agoC45V78njTIxYzwmSb")
+            else getattr(settings, "ELEVENLABS_VOICE_ID_MALE", "bIHbv24MWmeRgasZH58o")
         )
+        target_voice_ids.append(default_id)
 
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "xi-api-key": api_key,
         "Content-Type": "application/json",
@@ -159,16 +169,18 @@ async def _tts_elevenlabs(text: str, voice_type: str) -> str | None:
     try:
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=payload, headers=headers) as resp:
-                if resp.status == 200:
-                    audio_data = await resp.read()
-                    temp_path = _create_temp_mp3()
-                    Path(temp_path).write_bytes(audio_data)
-                    logger.info("ElevenLabs TTS muvaffaqiyatli: {} ({} bayt)", temp_path, len(audio_data))
-                    return temp_path
-                else:
-                    err_body = await resp.text()
-                    logger.warning("ElevenLabs xatosi: status={}, body={}", resp.status, err_body[:120])
+            for voice_id in target_voice_ids:
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status == 200:
+                        audio_data = await resp.read()
+                        temp_path = _create_temp_mp3()
+                        Path(temp_path).write_bytes(audio_data)
+                        logger.info("ElevenLabs TTS muvaffaqiyatli: {} ({} bayt, voice={})", temp_path, len(audio_data), voice_id)
+                        return temp_path
+                    else:
+                        err_body = await resp.text()
+                        logger.warning("ElevenLabs xatosi (voice={}): status={}, body={}", voice_id, resp.status, err_body[:120])
     except Exception as exc:
         logger.warning("ElevenLabs TTS ulanishida xatolik: {}", exc)
 
