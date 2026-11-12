@@ -144,6 +144,8 @@ async def handle_business_voice_message(message: types.Message, bot: Bot) -> Non
             text=response_text,
             voice_type=getattr(ai_profile, "voice_type", "female_warm"),
             language="uz",
+            role=getattr(ai_profile, "role", "qiz_dost"),
+            level=getattr(ai_profile, "relationship_level", 1),
         )
 
         # Telegramda «ovozli xabar yozmoqda...» effektini ko'rsatish

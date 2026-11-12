@@ -24,27 +24,8 @@ except ImportError:
 
 from config.settings import settings
 from voice.voice_profiles import DEFAULT_VOICE_TYPE, VOICE_PROFILES, VoiceProfile
-
-
-def clean_text_for_speech(text: str) -> str:
-    """Ovozga aylantirishdan oldin matnni tabiiy talaffuz uchun tozalaydi."""
-    if not text:
-        return ""
-    # Markdown belgilarini tozalash (*kursiv*, **qalin**, `kod`, # sarlavha)
-    cleaned = re.sub(r"[*_~`#>]", "", text)
-    # URL manzillarni tozalash
-    cleaned = re.sub(r"https?://\S+", "", cleaned)
-    # Emojilarni tozalash
-    emoji_pattern = re.compile(
-        r"[\U00010000-\U0010ffff]|[\u2000-\u32ff]|[\ud83c-\ud83e][\ud000-\udfff]",
-        flags=re.UNICODE,
-    )
-    cleaned = emoji_pattern.sub("", cleaned)
-    # Ko'p nuqtalarni tabiiy pauza uchun bitta nuqtaga aylantirish
-    cleaned = re.sub(r"\.{2,}", "...", cleaned)
-    # Ortiqcha probellarni qisqartirish
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return cleaned
+from voice.speech_humanizer import clean_text_for_speech, humanize_for_speech
+from voice.audio_postprocessor import apply_smartphone_voice_filter
 
 
 def _resolve_edge_voice(profile: VoiceProfile, language: str) -> str:
@@ -192,27 +173,38 @@ async def text_to_speech(
     text: str,
     voice_type: str = DEFAULT_VOICE_TYPE,
     language: str = "uz",
+    role: str = "qiz_dost",
+    level: int = 1,
+    apply_effects: bool = True,
 ) -> str:
-    """Matnni ovozga aylantiradi.
+    """Matnni insoniy ovozga aylantiradi.
     
-    Ketma-ketlik:
-    1. ElevenLabs (agar ELEVENLABS_API_KEY bo'lsa — haqiqiy inson his-tuyg'ulari)
-    2. OpenAI TTS (agar OPENAI_API_KEY bo'lsa)
-    3. Microsoft Edge-TTS (har doim bepul va tayyor)
+    Bosqichlar:
+    1. Speech Humanizer: matnni jonli o'zbek so'zlashuv fonetikasiga, nafas pauzalariga
+       va hissiy tovushlarga (interjections) o'tkazadi.
+    2. Multi-provider TTS: ElevenLabs -> OpenAI -> Microsoft Edge-TTS.
+    3. Audio Post-Processor: smartfon mikrofoni filtrlarini berib, Telegram native Opus (.ogg) ga o'tkazadi.
     """
-    cleaned_text = clean_text_for_speech(text)
-    if not cleaned_text:
-        cleaned_text = "Salom"
+    speech_text = humanize_for_speech(text, role=role, level=level)
+    if not speech_text:
+        speech_text = "Salom"
+
+    raw_path: str | None = None
 
     # 1. ElevenLabs (O'ta hissiyotli inson ovozi)
-    el_path = await _tts_elevenlabs(cleaned_text, voice_type=voice_type)
-    if el_path:
-        return el_path
+    raw_path = await _tts_elevenlabs(speech_text, voice_type=voice_type)
 
     # 2. OpenAI TTS
-    oa_path = await _tts_openai(cleaned_text, voice_type=voice_type)
-    if oa_path:
-        return oa_path
+    if not raw_path:
+        raw_path = await _tts_openai(speech_text, voice_type=voice_type)
 
     # 3. Standart bepul Edge-TTS
-    return await _tts_edge(cleaned_text, voice_type=voice_type, language=language)
+    if not raw_path:
+        raw_path = await _tts_edge(speech_text, voice_type=voice_type, language=language)
+
+    # 4. Smartfon mikrofoni & Telegram Opus filtri
+    if apply_effects and raw_path:
+        final_path = await apply_smartphone_voice_filter(raw_path, output_format="ogg")
+        return final_path
+
+    return raw_path
