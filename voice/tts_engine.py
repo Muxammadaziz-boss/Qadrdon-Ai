@@ -336,6 +336,7 @@ async def text_to_speech(
                 voice_id_override=voice_id_override,
             )
     else:
+        # 1. VoiceLab.uz (O'zbekiston milliy tabiiy AI ovozi)
         raw_path = await _tts_voicelab(
             speech_text,
             voice_type=voice_type,
@@ -343,14 +344,23 @@ async def text_to_speech(
             speed=emotion_cfg.speed,
             voice_id_override=voice_id_override,
         )
+        # 2. Agar VoiceLab balansi tugagan bo'lsa (402), toza o'zbekcha Edge-TTS'ga o'tish
+        # (Chunki ElevenLabs umumiy modellari o'zbekchani chet el aksenti bilan aytadi)
+        if not raw_path and language == "uz":
+            try:
+                raw_path = await _tts_edge(speech_text, voice_type=voice_type, language=language)
+            except Exception as e:
+                logger.warning("Edge-TTS zaxirasi xatosi: {}", e)
+
+        # 3. ElevenLabs
         if not raw_path:
             raw_path = await _tts_elevenlabs(speech_text, voice_type=voice_type)
 
-    # 3. OpenAI TTS
+    # 4. OpenAI TTS
     if not raw_path:
         raw_path = await _tts_openai(speech_text, voice_type=voice_type)
 
-    # 4. Standart bepul Edge-TTS (har doim kafolatlangan zaxira)
+    # 5. Standart bepul Edge-TTS (har doim kafolatlangan zaxira)
     if not raw_path:
         raw_path = await _tts_edge(speech_text, voice_type=voice_type, language=language)
 
